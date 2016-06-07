@@ -71,5 +71,12 @@
 * redis bluster support
 
 * eta
+  Make it compatible with rq-scheduler
 
 * rate limit
+
+* rpoplpush
+  Each worker can listen only on one queue.  It provide safety for the
+  queue.  Since workers are coroutines we can start multiple workers
+  at the same moment.  CLI Worker command just start multiple workers
+  in the same event loop.
