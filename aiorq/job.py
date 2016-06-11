@@ -56,43 +56,6 @@ def get_current_job(connection=None):
     return None
 
 
-def dumps(job):
-    """Create protocol job spec from job instance."""
-
-    id = job.id.encode()
-    instance = None
-    if inspect.ismethod(job.func):
-        func_name = job.func.__name__
-        instance = job.func.__self__
-    elif isinstance(job.func, str):
-        func_name = job.func
-    elif isinstance(job.func, bytes):
-        func_name = job.func.decode()
-    elif inspect.isfunction(job.func) or inspect.isbuiltin(job.func):
-        func_name = '{}.{}'.format(job.func.__module__, job.func.__name__)
-    elif hasattr(job.func, '__call__'):
-        func_name = '__call__'
-        instance = job.func
-    else:
-        msg = 'Expected a callable or a string, but got: {}'.format(job.func)
-        raise TypeError(msg)
-    data = func_name, instance, job.args, job.kwargs
-    spec = {}
-    spec[b'created_at'] = utcformat(job.created_at)
-    if job.enqueued_at:
-        spec[b'enqueued_at'] = utcformat(job.enqueued_at)
-    spec[b'data'] = pickle.dumps(data, protocol=pickle.HIGHEST_PROTOCOL)
-    spec[b'description'] = job.description.encode()
-    if job.status:
-        spec[b'status'] = job.status.encode()
-    spec[b'origin'] = job.origin.encode()
-    spec[b'timeout'] = job.timeout
-    spec[b'result_ttl'] = job.result_ttl
-    if job.dependency_id:
-        spec[b'dependency_id'] = job.dependency_id.encode()
-    return id, spec
-
-
 def loads(id, spec):
     """Create job instance from job id and protocol job spec."""
 
