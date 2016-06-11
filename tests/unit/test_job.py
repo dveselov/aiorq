@@ -136,26 +136,32 @@ def test_job_status(redis):
     job = Job(
         connection=redis,
         id='56e6ba45-1aa3-4724-8c9f-51b7b0031cee',
-        created_at=datetime(2016, 4, 5, 22, 40, 35),
         func=some_calculation,
         args=(3, 4),
         kwargs={'z': 2},
         description='fixtures.some_calculation(3, 4, z=2)',
         timeout=180,
         result_ttl=5000,
-        origin='default')
-    id, spec = dumps(job)
-    queue = spec[b'origin']
-    yield from enqueue_job(redis, queue, id, spec)
+        origin='default',
+        created_at=datetime(2016, 4, 5, 22, 40, 35))
+    # TODO: use queue methods here?
+    yield from enqueue_job(redis, b'default',
+                           b'56e6ba45-1aa3-4724-8c9f-51b7b0031cee', b'xxx',
+                           b'fixtures.some_calculation(3, 4, z=2)', 180,
+                           b'2016-04-05T22:40:35Z')
     assert (yield from job.is_queued)
-    stored_id, stored_spec = yield from dequeue_job(redis, queue)
-    yield from start_job(redis, queue, id, stored_spec)
+    yield from dequeue_job(redis, b'default')
+    yield from start_job(redis, b'default',
+                         b'56e6ba45-1aa3-4724-8c9f-51b7b0031cee', 180)
     assert (yield from job.is_started)
-    yield from finish_job(redis, id, stored_spec)
+    yield from finish_job(redis, b'default',
+                          b'56e6ba45-1aa3-4724-8c9f-51b7b0031cee')
     assert (yield from job.is_finished)
-    yield from fail_job(redis, queue, id, b"Exception('We are here')")
+    yield from fail_job(redis, b'default',
+                        b'56e6ba45-1aa3-4724-8c9f-51b7b0031cee',
+                        b"Exception('We are here')")
     assert (yield from job.is_failed)
-    deferred_job = Job(
+    job = Job(
         connection=redis,
         id='2a5079e7-387b-492f-a81c-68aa55c194c8',
         created_at=datetime(2016, 4, 5, 22, 40, 35),
@@ -167,9 +173,11 @@ def test_job_status(redis):
         result_ttl=5000,
         origin='default',
         dependency_id=job.id)
-    deferred_id, deferred_spec = dumps(deferred_job)
-    deferred_queue = deferred_spec[b'origin']
-    yield from enqueue_job(redis, deferred_queue, deferred_id, deferred_spec)
+    yield from enqueue_job(redis, b'default',
+                           b'2a5079e7-387b-492f-a81c-68aa55c194c8', b'xxx',
+                           b'fixtures.some_calculation(3, 4, z=2)', 180,
+                           b'2016-04-05T22:40:35Z',
+                           dependency_id=b'56e6ba45-1aa3-4724-8c9f-51b7b0031cee')
     assert (yield from job.is_deferred)
     status = yield from job.get_status()
     assert status == 'deferred'
