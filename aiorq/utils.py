@@ -11,6 +11,7 @@
 from calendar import timegm
 from datetime import datetime
 from importlib import import_module
+from inspect import ismethod, isfunction, isbuiltin
 
 
 def current_timestamp():
@@ -37,3 +38,25 @@ def import_attribute(name):
     module_name, attribute = name.rsplit('.', 1)
     module = import_module(module_name)
     return getattr(module, attribute)
+
+
+def function_name(function):
+    """Calculate function name."""
+
+    instance = None
+    if ismethod(function):
+        func_name = function.__name__
+        instance = function.__self__
+    elif isinstance(function, str):
+        func_name = function
+    elif isinstance(function, bytes):
+        func_name = function.decode()
+    elif isfunction(function) or isbuiltin(function):
+        func_name = '{}.{}'.format(function.__module__, function.__name__)
+    elif hasattr(function, '__call__'):
+        func_name = '__call__'
+        instance = function
+    else:
+        msg = 'Expected a callable or a string, but got: {}'.format(function)
+        raise TypeError(msg)
+    return func_name, instance
