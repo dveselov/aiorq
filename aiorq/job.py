@@ -55,7 +55,7 @@ def get_current_job(connection=None):
     return None
 
 
-def loads(id, spec):
+def loads(redis, id, spec):
     """Create job instance from job id and protocol job spec."""
 
     job_id = id.decode()
@@ -71,7 +71,7 @@ def loads(id, spec):
     origin = spec[b'origin'].decode()
     timeout = spec[b'timeout']
     result_ttl = spec[b'result_ttl']
-    job = Job(id=job_id, created_at=created_at,
+    job = Job(connection=redis, id=job_id, created_at=created_at,
               enqueued_at=enqueued_at, func=func, args=args,
               kwargs=kwargs, description=description, timeout=timeout,
               result_ttl=result_ttl, status=status, origin=origin)

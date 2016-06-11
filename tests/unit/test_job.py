@@ -7,7 +7,7 @@ import pytest
 from aiorq import (cancel_job, get_current_job, requeue_job, Queue,
                    get_failed_queue, Worker)
 from aiorq.exceptions import NoSuchJobError
-from aiorq.job import Job, loads, dumps, description
+from aiorq.job import Job, loads, description
 from aiorq.protocol import (enqueue_job, dequeue_job, start_job,
                             finish_job, fail_job)
 from aiorq.specs import JobStatus
@@ -21,7 +21,7 @@ from helpers import strip_microseconds
 # Loads.
 
 
-def test_loads():
+def test_loads(redis):
     """Loads job form the job spec."""
 
     id = b'2a5079e7-387b-492f-a81c-68aa55c194c8'
@@ -35,7 +35,8 @@ def test_loads():
         b'origin': b'default',
         b'enqueued_at': b'2016-05-03T12:10:11Z',
     }
-    job = loads(id, spec)
+    job = loads(redis, id, spec)
+    assert job.connection == redis
     assert job.id == '2a5079e7-387b-492f-a81c-68aa55c194c8'
     assert job.created_at == datetime(2016, 4, 5, 22, 40, 35)
     assert job.func == some_calculation
@@ -49,7 +50,7 @@ def test_loads():
     assert job.enqueued_at == datetime(2016, 5, 3, 12, 10, 11)
 
 
-def test_loads_instance_method():
+def test_loads_instance_method(redis):
     """Loads instance method job form the job spec."""
 
     id = b'2a5079e7-387b-492f-a81c-68aa55c194c8'
@@ -63,12 +64,12 @@ def test_loads_instance_method():
         b'origin': b'default',
         b'enqueued_at': b'2016-05-03T12:10:11Z',
     }
-    n = Number(2)
-    job = loads(id, spec)
+    job = loads(redis, id, spec)
+    assert job.connection == redis
     assert job.id == '2a5079e7-387b-492f-a81c-68aa55c194c8'
     assert job.created_at == datetime(2016, 4, 5, 22, 40, 35)
-    assert job.func.__name__ == n.div.__name__
-    assert job.func.__self__.__class__ == n.div.__self__.__class__
+    assert job.func.__name__ == 'div'
+    assert job.func.__self__.__class__ == Number
     assert job.args == (4,)
     assert job.kwargs == {}
     assert job.description == 'div(4)'
@@ -94,7 +95,7 @@ def test_loads_unreadable_data(redis):
         b'enqueued_at': b'2016-05-03T12:10:11Z',
     }
     with pytest.raises(UnpicklingError):
-        loads(id, spec)
+        loads(redis, id, spec)
 
 
 def test_loads_unimportable_data(redis):
@@ -113,7 +114,7 @@ def test_loads_unimportable_data(redis):
         b'enqueued_at': b'2016-05-03T12:10:11Z',
     }
     with pytest.raises(AttributeError):
-        loads(id, spec)
+        loads(redis, id, spec)
 
 
 # Description.
