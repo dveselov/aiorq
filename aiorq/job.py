@@ -25,9 +25,7 @@ def cancel_job(job_id, connection=None):
     Discards any job info (i.e. it can't be requeued later).
     """
 
-    job = Job(job_id, connection=connection)
-    yield from job.refresh()
-    yield from job.cancel()
+    return None
 
 
 @asyncio.coroutine
@@ -39,9 +37,7 @@ def requeue_job(job_id, connection=None):
     NoSuchJobError is raised.
     """
 
-    from .queue import get_failed_queue
-    fq = get_failed_queue(connection=connection)
-    yield from fq.requeue(job_id)
+    return None
 
 
 @asyncio.coroutine
