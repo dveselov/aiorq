@@ -183,47 +183,9 @@ def test_job_status(redis):
     assert status == 'deferred'
 
 
-def test_custom_meta_is_persisted(redis):
-    """Additional meta data on jobs are stored persisted correctly."""
-
-    job = Job(func=say_hello, args=('Lionel',))
-    job.meta['foo'] = 'bar'
-    yield from job.save()
-
-    raw_data = yield from redis.hget(job.key, 'meta')
-    assert loads(raw_data)['foo'] == 'bar'
-
-    job2 = yield from Job.fetch(job.id)
-    assert job2.meta['foo'] == 'bar'
-
-
-def test_result_ttl_is_persisted(redis):
-    """Ensure that job's result_ttl is set properly"""
-
-    job = Job(func=say_hello, args=('Lionel',), result_ttl=10)
-    yield from job.save()
-    yield from Job.fetch(job.id, connection=redis)
-    assert job.result_ttl == 10
-
-    job = Job(func=say_hello, args=('Lionel',))
-    yield from job.save()
-    yield from Job.fetch(job.id, connection=redis)
-    assert not job.result_ttl
-
-
-def test_description_is_persisted(redis):
-    """Ensure that job's custom description is set properly."""
-
-    job = Job(func=say_hello, args=('Lionel',), description='Say hello!')
-    yield from job.save()
-    yield from Job.fetch(job.id, connection=redis)
-    assert job.description == 'Say hello!'
-
-    # Ensure job description is constructed from function call string
-    job = Job(func=say_hello, args=('Lionel',))
-    yield from job.save()
-    yield from Job.fetch(job.id, connection=redis)
-    assert job.description == "fixtures.say_hello('Lionel')"
+# TODO: persist job meta dict as pickle
+# TODO: persist result ttl
+# TODO: persist custom description
 
 
 def test_job_access_outside_job_fails():
@@ -232,92 +194,11 @@ def test_job_access_outside_job_fails():
     assert not (yield from get_current_job())
 
 
-def test_job_access_within_job_function(loop):
-    """The current job is accessible within the job function."""
-
-    q = Queue()
-    # access_self calls get_current_job() and asserts
-    yield from q.enqueue(access_self)
-    w = Worker(q)
-    yield from w.work(burst=True, loop=loop)
-
-
-def test_get_result_ttl():
-    """Getting job result TTL."""
-
-    job_result_ttl = 1
-    default_ttl = 2
-
-    job = Job(func=say_hello, result_ttl=job_result_ttl)
-    yield from job.save()
-    assert job.get_result_ttl(default_ttl=default_ttl) == job_result_ttl
-    assert job.get_result_ttl() == job_result_ttl
-
-    job = Job(func=say_hello)
-    yield from job.save()
-    assert job.get_result_ttl(default_ttl=default_ttl) == default_ttl
-    assert not job.get_result_ttl()
-
-
-def test_get_job_ttl():
-    """Getting job TTL."""
-
-    ttl = 1
-
-    job = Job(func=say_hello, ttl=ttl)
-    yield from job.save()
-    assert job.get_ttl() == ttl
-
-    job = Job(func=say_hello)
-    yield from job.save()
-    assert not job.get_ttl()
-
-
-def test_ttl_via_enqueue(redis):
-    """Enqueue set custom TTL on job."""
-
-    ttl = 1
-    queue = Queue(connection=redis)
-    job = yield from queue.enqueue(say_hello, ttl=ttl)
-    assert job.get_ttl() == ttl
-
-
-def test_create_job_with_id(redis):
-    """Create jobs with a custom ID."""
-
-    queue = Queue(connection=redis)
-    job = yield from queue.enqueue(say_hello, job_id="1234")
-
-    assert job.id == "1234"
-    yield from job.perform()
-
-    with pytest.raises(TypeError):
-        yield from queue.enqueue(say_hello, job_id=1234)
-
-
-def test_get_call_string_unicode(redis):
-    """Call string with unicode keyword arguments."""
-
-    queue = Queue(connection=redis)
-    job = yield from queue.enqueue(
-        echo, arg_with_unicode=UnicodeStringObject())
-    assert job.get_call_string()
-    yield from job.perform()
-
-
-def test_create_job_with_ttl_should_have_ttl_after_enqueued(redis):
-    """Create jobs with ttl and checks if get_jobs returns it properly."""
-
-    queue = Queue(connection=redis)
-    yield from queue.enqueue(say_hello, job_id="1234", ttl=10)
-    job = (yield from queue.get_jobs())[0]
-    assert job.ttl == 10
-
-
-def test_create_job_with_ttl_should_expire(redis):
-    """A job created with ttl expires."""
-
-    queue = Queue(connection=redis)
-    queue.enqueue(say_hello, job_id="1234", ttl=1)
-    time.sleep(1)
-    assert not len((yield from queue.get_jobs()))
+# TODO: get job inside running worker
+# TODO: calculate result_ttl if not specified
+# TODO: calculate job ttl field
+# TODO: set ttl via queue.enqueue
+# TODO: persist custom job_id with queue.enqueue
+# TODO: description with unicode string in the argument repr
+# TODO: create job with ttl, dequeue job, ttl argument should be equal
+# TODO: expire job with ttl
