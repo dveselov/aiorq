@@ -15,10 +15,7 @@ from .keys import (queues_key, queue_key, failed_queue_key, job_key,
                    started_registry, finished_registry, deferred_registry,
                    workers_key, worker_key, dependents)
 from .specs import JobStatus, WorkerStatus
-from .utils import current_timestamp, utcformat, utcnow
-
-
-unset = object()
+from .utils import unset, current_timestamp, utcformat, utcnow
 
 
 @asyncio.coroutine

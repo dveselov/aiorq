@@ -14,6 +14,9 @@ from importlib import import_module
 from inspect import ismethod, isfunction, isbuiltin
 
 
+unset = object()
+
+
 def current_timestamp():
     """Current UTC timestamp."""
 
