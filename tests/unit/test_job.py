@@ -122,24 +122,8 @@ def test_loads_unimportable_data(redis):
 def test_description():
     """Make job description."""
 
-    n = Number(2)
-    kallable = CallableObject()
-    desc = description(some_calculation, (3, 4), {'z': 2})
+    desc = description('fixtures.some_calculation', (3, 4), {'z': 2})
     assert desc == 'fixtures.some_calculation(3, 4, z=2)'
-    desc = description(n.div, (4,), {})
-    assert desc == 'div(4)'
-    desc = description('fixtures.say_hello', ('World',), {})
-    assert desc == "fixtures.say_hello('World')"
-    desc = description(b'fixtures.say_hello', ('World',), {})
-    assert desc == "fixtures.say_hello('World')"
-    desc = description(len, ([],), {})
-    assert desc == 'builtins.len([])'
-    desc = description(kallable, (), {})
-    assert desc == '__call__()'
-    desc = description(l, (), {})
-    assert desc == 'fixtures.<lambda>()'
-    desc = description('myfunc', [12, '☃'], {'snowman': '☃'})
-    assert desc == "myfunc(12, '☃', snowman='☃')"
 
 
 # Job.
