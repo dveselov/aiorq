@@ -218,9 +218,6 @@ def test_compact(redis):
     yield from q.compact()
     assert (yield from q.count) == 2
 
-    with pytest.raises(RuntimeError):
-        len(q)
-
 
 def test_enqueue(redis):
     """Enqueueing job onto queues."""

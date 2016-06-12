@@ -47,19 +47,6 @@ class Queue:
 
         return [to_queue(rq_key) for rq_key in rq_keys if rq_key]
 
-    @classmethod
-    def from_queue_key(cls, queue_key, connection=None):
-        """Returns a Queue instance, based on the naming conventions for
-        naming the internal Redis keys.  Can be used to reverse-lookup
-        Queues by their Redis keys.
-        """
-
-        prefix = cls.redis_queue_namespace_prefix
-        if not queue_key.startswith(prefix):
-            raise ValueError('Not a valid RQ queue key: {0}'.format(queue_key))
-        name = queue_key[len(prefix):]
-        return cls(name, connection=connection)
-
     def __init__(self, name='default', default_timeout=None, connection=None,
                  job_class=None):
 
@@ -71,12 +58,6 @@ class Queue:
             if isinstance(job_class, str):
                 job_class = import_attribute(job_class)
             self.job_class = job_class
-
-    def __len__(self):
-        """Queue length."""
-
-        raise RuntimeError('Do not use `len` on asynchronous queues'
-                           ' (use queue.count instead).')
 
     @asyncio.coroutine
     def empty(self):
@@ -169,22 +150,6 @@ class Queue:
                 (yield from self.connection.rpush(self.key, job_id))
 
     @asyncio.coroutine
-    def push_job_id(self, job_id, pipeline=None, at_front=False):
-        """Pushes a job ID on the corresponding Redis queue.
-
-        'at_front' allows you to push the job onto the front instead
-        of the back of the queue
-        """
-
-        connection = pipeline if pipeline else self.connection
-        if at_front:
-            coroutine = connection.lpush(self.key, job_id)
-        else:
-            coroutine = connection.rpush(self.key, job_id)
-        if not pipeline:
-            yield from coroutine
-
-    @asyncio.coroutine
     def enqueue(self, f, *args, **kwargs):
         """Creates a job to represent the delayed function call and enqueues
         it.
@@ -272,160 +237,6 @@ class Queue:
         job = yield from self.enqueue_job(job, at_front=at_front)
 
         return job
-
-    @asyncio.coroutine
-    def enqueue_job(self, job, pipeline=None, at_front=False):
-        """Enqueues a job for delayed execution."""
-
-        pipe = pipeline if pipeline else self.connection.multi_exec()
-        pipe.sadd(self.redis_queues_keys, self.key)
-        yield from job.set_status(JobStatus.QUEUED, pipeline=pipe)
-
-        job.origin = self.name
-        job.enqueued_at = utcnow()
-
-        if job.timeout is None:
-            job.timeout = self.DEFAULT_TIMEOUT
-
-        yield from job.save(pipeline=pipe)
-        if not pipeline:
-            yield from pipe.execute()
-        yield from self.push_job_id(job.id, at_front=at_front)
-        return job
-
-    @asyncio.coroutine
-    def enqueue_dependents(self, job):
-        """Enqueues all jobs in the given job's dependents set and clears it.
-        """
-
-        # TODO: can probably be pipelined
-        from .registry import DeferredJobRegistry
-
-        while True:
-            job_id = yield from self.connection.spop(job.dependents_key)
-            job_id = as_text(job_id)
-            if job_id is None:
-                break
-
-            dependent = yield from self.job_class.fetch(
-                job_id, connection=self.connection)
-            registry = DeferredJobRegistry(dependent.origin, self.connection)
-
-            pipe = self.connection.multi_exec()
-            yield from registry.remove(dependent, pipeline=pipe)
-            if dependent.origin == self.name:
-                yield from self.enqueue_job(dependent, pipeline=pipe)
-            else:
-                queue = Queue(name=dependent.origin,
-                              connection=self.connection)
-                yield from queue.enqueue_job(dependent, pipeline=pipe)
-            yield from pipe.execute()
-
-    @asyncio.coroutine
-    def pop_job_id(self):
-        """Pops a given job ID from this Redis queue."""
-
-        return as_text((yield from self.connection.lpop(self.key)))
-
-    @classmethod
-    @asyncio.coroutine
-    def lpop(cls, queue_keys, timeout, connection):
-        """Helper method.  Intermediate method to abstract away from some
-        Redis API details, where LPOP accepts only a single key,
-        whereas BLPOP accepts multiple.  So if we want the
-        non-blocking LPOP, we need to iterate over all queues, do
-        individual LPOPs, and return the result.
-
-        Until Redis receives a specific method for this, we'll have to
-        wrap it this way.
-
-        The timeout parameter is interpreted as follows:
-            None - non-blocking (return immediately)
-             > 0 - maximum number of seconds to block
-        """
-
-        if timeout is not None:
-            if timeout == 0:
-                raise ValueError(
-                    'aiorq does not support indefinite timeouts.  '
-                    'Please pick a timeout value > 0')
-            result = yield from connection.blpop(*queue_keys, timeout=timeout)
-            if result is None:
-                raise DequeueTimeout(timeout, queue_keys)
-            queue_key, job_id = result
-            return queue_key, job_id
-        else:
-            for queue_key in queue_keys:
-                blob = yield from connection.lpop(queue_key)
-                if blob is not None:
-                    return queue_key, blob
-            return None
-
-    @asyncio.coroutine
-    def dequeue(self):
-        """Dequeues the front-most job from this queue.
-
-        Returns a job_class instance, which can be executed or
-        inspected.
-        """
-
-        while True:
-            job_id = yield from self.pop_job_id()
-            if job_id is None:
-                return None
-            try:
-                job = yield from self.job_class.fetch(
-                    job_id, connection=self.connection)
-            except NoSuchJobError as e:
-                # Silently pass on jobs that don't exist (anymore),
-                continue
-            except UnpickleError as e:
-                # Attach queue information on the exception for improved error
-                # reporting
-                e.job_id = job_id
-                e.queue = self
-                raise e
-            return job
-
-    @classmethod
-    @asyncio.coroutine
-    def dequeue_any(cls, queues, timeout, connection=None):
-        """Class method returning the job_class instance at the front of the
-        given set of Queues, where the order of the queues is
-        important.
-
-        When all of the Queues are empty, depending on the `timeout`
-        argument, either blocks execution of this function for the
-        duration of the timeout or until new messages arrive on any of
-        the queues, or returns None.
-
-        See the documentation of cls.lpop for the interpretation of
-        timeout.
-        """
-
-        while True:
-            queue_keys = [q.key for q in queues]
-            result = yield from cls.lpop(
-                queue_keys, timeout, connection=connection)
-            if result is None:
-                return None
-            queue_key, job_id = map(as_text, result)
-            queue = cls.from_queue_key(queue_key, connection=connection)
-            try:
-                job = yield from cls.job_class.fetch(
-                    job_id, connection=connection)
-            except NoSuchJobError:
-                # Silently pass on jobs that don't exist (anymore),
-                # and continue in the look
-                continue
-            except UnpickleError as e:
-                # Attach queue information on the exception for
-                # improved error reporting
-                e.job_id = job_id
-                e.queue = queue
-                raise e
-            return job, queue
-        return None, None
 
     def __eq__(self, other):
 
