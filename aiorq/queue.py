@@ -144,7 +144,7 @@ class Queue:
     def count(self):
         """Returns a count of all messages in the queue."""
 
-        return (yield from self.connection.llen(self.key))
+        return (yield from self.protocol.queue_length(self.connection, self.name))
 
     @asyncio.coroutine
     def remove(self, job_or_id):

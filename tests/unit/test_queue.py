@@ -121,7 +121,7 @@ def test_queue_count(redis):
         protocol = Protocol()
 
     q = TestQueue('example', connection=redis)
-    assert (yield from q.count()) == 3
+    assert (yield from q.count) == 3
 
 
 def test_remove(redis):
