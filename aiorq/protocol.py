@@ -217,6 +217,7 @@ def enqueue_job(redis, queue, id, data, description, timeout,
             multi.rpush(queue_key(queue), id)
     # TODO: do we need expire job hash?
     yield from multi.execute()
+    # TODO: return calculated fields.
 
 
 @asyncio.coroutine
