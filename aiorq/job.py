@@ -13,7 +13,6 @@
 import asyncio
 import pickle
 
-from .protocol import job_status
 from .specs import JobStatus
 from .utils import utcformat, utcparse, import_attribute, function_name
 
@@ -86,6 +85,8 @@ def description(func_name, args, kwargs):
 class Job:
     """A Job is just convenient data structure to pass around (meta) data."""
 
+    from . import protocol
+
     def __init__(self, connection, id, func, args, kwargs, description,
                  timeout, result_ttl, origin, created_at,
                  enqueued_at=None, status=None, dependency_id=None):
@@ -108,7 +109,7 @@ class Job:
     def get_status(self):
         """Get job status asynchronously."""
 
-        status = yield from job_status(self.connection, self.id)
+        status = yield from self.protocol.job_status(self.connection, self.id)
         self.status = status.decode()
         return self.status
 
@@ -116,7 +117,7 @@ class Job:
     @asyncio.coroutine
     def is_finished(self):
 
-        status = yield from job_status(self.connection, self.id)
+        status = yield from self.protocol.job_status(self.connection, self.id)
         self.status = status.decode()
         return self.status == JobStatus.FINISHED
 
@@ -124,7 +125,7 @@ class Job:
     @asyncio.coroutine
     def is_queued(self):
 
-        status = yield from job_status(self.connection, self.id)
+        status = yield from self.protocol.job_status(self.connection, self.id)
         self.status = status.decode()
         return self.status == JobStatus.QUEUED
 
@@ -132,7 +133,7 @@ class Job:
     @asyncio.coroutine
     def is_failed(self):
 
-        status = yield from job_status(self.connection, self.id)
+        status = yield from self.protocol.job_status(self.connection, self.id)
         self.status = status.decode()
         return self.status == JobStatus.FAILED
 
@@ -140,7 +141,7 @@ class Job:
     @asyncio.coroutine
     def is_started(self):
 
-        status = yield from job_status(self.connection, self.id)
+        status = yield from self.protocol.job_status(self.connection, self.id)
         self.status = status.decode()
         return self.status == JobStatus.STARTED
 
@@ -148,7 +149,7 @@ class Job:
     @asyncio.coroutine
     def is_deferred(self):
 
-        status = yield from job_status(self.connection, self.id)
+        status = yield from self.protocol.job_status(self.connection, self.id)
         self.status = status.decode()
         return self.status == JobStatus.DEFERRED
 

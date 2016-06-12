@@ -1,3 +1,4 @@
+import asyncio
 import time
 from datetime import datetime
 from pickle import UnpicklingError
@@ -133,7 +134,21 @@ def test_description():
 def test_job_status(redis):
     """Access job status checkers like is_started."""
 
-    job = Job(
+    results = [b'queued', b'started', b'finished', b'failed', b'deferred',
+               b'deferred']
+
+    class Protocol:
+        @staticmethod
+        @asyncio.coroutine
+        def job_status(connection, id):
+            assert connection is redis
+            assert id == '56e6ba45-1aa3-4724-8c9f-51b7b0031cee'
+            return results.pop(0)
+
+    class TestJob(Job):
+        protocol = Protocol()
+
+    job = TestJob(
         connection=redis,
         id='56e6ba45-1aa3-4724-8c9f-51b7b0031cee',
         func=some_calculation,
@@ -144,43 +159,13 @@ def test_job_status(redis):
         result_ttl=5000,
         origin='default',
         created_at=datetime(2016, 4, 5, 22, 40, 35))
-    # TODO: use queue methods here?
-    yield from enqueue_job(redis, 'default',
-                           '56e6ba45-1aa3-4724-8c9f-51b7b0031cee', b'xxx',
-                           'fixtures.some_calculation(3, 4, z=2)', 180,
-                           '2016-04-05T22:40:35Z')
+
     assert (yield from job.is_queued)
-    yield from dequeue_job(redis, 'default')
-    yield from start_job(redis, 'default',
-                         '56e6ba45-1aa3-4724-8c9f-51b7b0031cee', 180)
     assert (yield from job.is_started)
-    yield from finish_job(redis, 'default',
-                          '56e6ba45-1aa3-4724-8c9f-51b7b0031cee')
     assert (yield from job.is_finished)
-    yield from fail_job(redis, 'default',
-                        '56e6ba45-1aa3-4724-8c9f-51b7b0031cee',
-                        "Exception('We are here')")
     assert (yield from job.is_failed)
-    job = Job(
-        connection=redis,
-        id='2a5079e7-387b-492f-a81c-68aa55c194c8',
-        created_at=datetime(2016, 4, 5, 22, 40, 35),
-        func=some_calculation,
-        args=(3, 4),
-        kwargs={'z': 2},
-        description='fixtures.some_calculation(3, 4, z=2)',
-        timeout=180,
-        result_ttl=5000,
-        origin='default',
-        dependency_id=job.id)
-    yield from enqueue_job(redis, 'default',
-                           '2a5079e7-387b-492f-a81c-68aa55c194c8', b'xxx',
-                           'fixtures.some_calculation(3, 4, z=2)', 180,
-                           '2016-04-05T22:40:35Z',
-                           dependency_id='56e6ba45-1aa3-4724-8c9f-51b7b0031cee')
     assert (yield from job.is_deferred)
-    status = yield from job.get_status()
-    assert status == JobStatus.DEFERRED
+    assert (yield from job.get_status()) == JobStatus.DEFERRED
 
 
 # TODO: persist job meta dict as pickle
