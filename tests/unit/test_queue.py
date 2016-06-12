@@ -1,10 +1,11 @@
+import asyncio
 import pytest
-from rq.job import JobStatus
+from datetime import datetime
 
 from aiorq import Queue, get_failed_queue, Worker
 from aiorq.exceptions import InvalidJobOperationError, DequeueTimeout
 from aiorq.job import Job
-from aiorq.registry import DeferredJobRegistry
+from aiorq.specs import JobStatus
 from fixtures import say_hello, Number, echo, div_by_zero
 
 
@@ -41,6 +42,9 @@ def test_custom_job_class():
     assert q.job_class == CustomJob
 
 
+# TODO: pass CustomJob as a string
+
+
 def test_equality():
     """Mathematical equality of queues."""
 
@@ -66,47 +70,94 @@ def test_queue_order():
 def test_empty_queue(redis):
     """Emptying queues."""
 
-    q = Queue('example', connection=redis)
-    yield from redis.rpush('rq:queue:example', 'foo')
-    yield from redis.rpush('rq:queue:example', 'bar')
-    assert not (yield from q.is_empty())
-    yield from q.empty()
-    assert (yield from q.is_empty())
-    assert (yield from redis.lpop('rq:queue:example')) is None
+    class Protocol:
+        @staticmethod
+        @asyncio.coroutine
+        def empty_queue(connection, name):
+            assert connection is redis
+            assert name == 'example'
+            return 2
 
+    class TestQueue(Queue):
+        protocol = Protocol()
 
-def test_empty_removes_jobs(redis):
-    """Emptying a queue deletes the associated job objects."""
-
-    q = Queue('example')
-    job = yield from q.enqueue(lambda x: x)
-    assert (yield from Job.exists(job.id))
-    yield from q.empty()
-    assert not (yield from Job.exists(job.id))
+    q = TestQueue('example', connection=redis)
+    assert (yield from q.empty()) == 2
 
 
 def test_queue_is_empty(redis):
     """Detecting empty queues."""
 
-    q = Queue('example')
-    assert (yield from q.is_empty())
-    yield from redis.rpush('rq:queue:example', 'sentinel message')
+    lengths = [2, 0]
+
+    class Protocol:
+        @staticmethod
+        @asyncio.coroutine
+        def queue_length(connection, name):
+            assert connection is redis
+            assert name == 'example'
+            return lengths.pop(0)
+
+    class TestQueue(Queue):
+        protocol = Protocol()
+
+    q = TestQueue('example', connection=redis)
     assert not (yield from q.is_empty())
+    assert (yield from q.is_empty())
 
 
-def test_remove():
+def test_queue_count(redis):
+    """Count all messages in the queue."""
+
+    class Protocol:
+        @staticmethod
+        @asyncio.coroutine
+        def queue_length(connection, name):
+            assert connection is redis
+            assert name == 'example'
+            return 3
+
+    class TestQueue(Queue):
+        protocol = Protocol()
+
+    q = TestQueue('example', connection=redis)
+    assert (yield from q.count()) == 3
+
+
+def test_remove(redis):
     """Ensure queue.remove properly removes Job from queue."""
 
-    q = Queue('example')
-    job = yield from q.enqueue(say_hello)
-    assert job.id in (yield from q.job_ids)
-    yield from q.remove(job)
-    assert job.id not in (yield from q.job_ids)
+    sentinel = []
 
-    job = yield from q.enqueue(say_hello)
-    assert job.id in (yield from q.job_ids)
+    class Protocol:
+        @staticmethod
+        @asyncio.coroutine
+        def cancel_job(connection, name, id):
+            assert connection is redis
+            assert name == 'example'
+            assert id == '56e6ba45-1aa3-4724-8c9f-51b7b0031cee'
+            sentinel.append(1)
+
+    class TestQueue(Queue):
+        protocol = Protocol()
+
+    q = TestQueue('example', connection=redis)
+
+    job = Job(
+        connection=redis,
+        id='56e6ba45-1aa3-4724-8c9f-51b7b0031cee',
+        func=say_hello,
+        args=(),
+        kwargs={},
+        description='fixtures.say_hello()',
+        timeout=180,
+        result_ttl=5000,
+        origin='default',
+        created_at=datetime(2016, 4, 5, 22, 40, 35))
+
+    yield from q.remove(job)
     yield from q.remove(job.id)
-    assert job.id not in (yield from q.job_ids)
+    assert len(sentinel) == 2
 
 
 def test_jobs():
