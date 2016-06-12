@@ -13,6 +13,7 @@
 import asyncio
 import pickle
 
+from . import protocol
 from .specs import JobStatus
 from .utils import utcformat, utcparse, import_attribute, function_name
 
@@ -85,7 +86,7 @@ def description(func_name, args, kwargs):
 class Job:
     """A Job is just convenient data structure to pass around (meta) data."""
 
-    from . import protocol
+    protocol = protocol
 
     def __init__(self, connection, id, func, args, kwargs, description,
                  timeout, result_ttl, origin, created_at,

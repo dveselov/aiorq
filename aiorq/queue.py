@@ -14,6 +14,7 @@ import asyncio
 import functools
 import uuid
 
+from . import protocol
 from .exceptions import (NoSuchJobError, UnpickleError,
                          DequeueTimeout, InvalidJobOperationError)
 from .job import Job, loads
@@ -30,8 +31,8 @@ class Queue:
     """asyncio job queue."""
 
     job_class = Job
+    protocol = protocol
     DEFAULT_TIMEOUT = 180
-    from . import protocol
 
     @classmethod
     @asyncio.coroutine
