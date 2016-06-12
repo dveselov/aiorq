@@ -16,7 +16,7 @@ import uuid
 
 from .exceptions import (NoSuchJobError, UnpickleError,
                          DequeueTimeout, InvalidJobOperationError)
-from .job import Job
+from .job import Job, loads
 
 
 def get_failed_queue(connection=None):
@@ -107,22 +107,19 @@ class Queue:
             end = offset + (length - 1)
         else:
             end = length
-        return [as_text(job_id) for job_id in
-                (yield from self.connection.lrange(self.key, start, end))]
+        jobs = yield from self.protocol.jobs(self.connection, self.name, start, end)
+        return [job_id.decode() for job_id in jobs]
 
     @asyncio.coroutine
     def get_jobs(self, offset=0, length=-1):
         """Returns a slice of jobs in the queue."""
 
         job_ids = yield from self.get_job_ids(offset, length)
-        # NOTE: yielding from list comprehension instantiate not
-        # started generator object.  Asyncio will fail since we don't
-        # yield from future.
         jobs = []
         for job_id in job_ids:
-            job = yield from self.fetch_job(job_id)
-            if job is not None:
-                jobs.append(job)
+            job = yield from self.protocol.job(self.connection, job_id)
+            # FIXME: use job_id.encode() is stupid.
+            jobs.append(loads(self.connection, job_id.encode(), job))
         return jobs
 
     @property

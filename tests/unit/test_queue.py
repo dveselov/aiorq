@@ -2,10 +2,12 @@ import asyncio
 import pytest
 from datetime import datetime
 
+import stubs
 from aiorq import Queue, get_failed_queue, Worker
 from aiorq.exceptions import InvalidJobOperationError, DequeueTimeout
 from aiorq.job import Job
 from aiorq.specs import JobStatus
+from aiorq.utils import utcformat, utcnow
 from fixtures import say_hello, Number, echo, div_by_zero
 
 
@@ -160,17 +162,47 @@ def test_remove(redis):
     assert len(sentinel) == 2
 
 
-def test_jobs():
+def test_jobs(redis):
     """Getting jobs out of a queue."""
 
-    q = Queue('example')
-    assert not (yield from q.jobs)
-    job = yield from q.enqueue(say_hello)
-    assert (yield from q.jobs) == [job]
+    class Protocol:
+        @staticmethod
+        @asyncio.coroutine
+        def jobs(connection, queue, start, end):
+            assert connection is redis
+            assert queue == 'example'
+            assert start == 0
+            assert end == -1
+            return [stubs.job_id.encode()]
 
-    # Deleting job removes it from queue
-    yield from job.delete()
-    assert not (yield from q.job_ids)
+        @staticmethod
+        @asyncio.coroutine
+        def job(connection, id):
+            assert connection is redis
+            assert id == stubs.job_id
+            return {
+                b'created_at': b'2016-04-05T22:40:35Z',
+                b'data': b'\x80\x04\x950\x00\x00\x00\x00\x00\x00\x00(\x8c\x19fixtures.some_calculation\x94NK\x03K\x04\x86\x94}\x94\x8c\x01z\x94K\x02st\x94.',  # noqa
+                b'description': b'fixtures.some_calculation(3, 4, z=2)',
+                b'timeout': 180,
+                b'result_ttl': 5000,
+                b'status': JobStatus.QUEUED.encode(),
+                b'origin': stubs.queue.encode(),
+                b'enqueued_at': utcformat(utcnow()).encode(),
+            }
+
+    class TestQueue(Queue):
+        protocol = Protocol()
+
+    q = TestQueue('example', connection=redis)
+    [job] = yield from q.jobs
+    assert job.connection is redis
+    assert job.id == stubs.job_id
+    assert job.description == stubs.job['description']
+
+
+# TODO: test q.jobs and empty hash from protocol.job
+# TODO: test get_job_ids offset and length behavior.
 
 
 def test_compact(redis):
