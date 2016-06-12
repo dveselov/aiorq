@@ -34,7 +34,7 @@ def jobs(redis, queue, start=0, end=-1):
     """All queue jobs.
 
     :type redis: `aioredis.Redis`
-    :type queue: bytes
+    :type queue: str
     :type start: int
     :type end: int
 
@@ -48,7 +48,7 @@ def job(redis, id):
     """Get job hash by job id.
 
     :type redis: `aioredis.Redis`
-    :type id: bytes
+    :type id: str
 
     """
 
@@ -65,11 +65,11 @@ def job_status(redis, id):
     """Get job status.
 
     :type redis: `aioredis.Redis`
-    :type id: bytes
+    :type id: str
 
     """
 
-    return (yield from redis.hget(job_key(id), b'status'))
+    return (yield from redis.hget(job_key(id), 'status'))
 
 
 @asyncio.coroutine
@@ -77,7 +77,7 @@ def started_jobs(redis, queue, start=0, end=-1):
     """All started jobs from this queue.
 
     :type redis: `aioredis.Redis`
-    :type queue: bytes
+    :type queue: str
     :type start: int
     :type end: int
 
@@ -92,7 +92,7 @@ def finished_jobs(redis, queue, start=0, end=-1):
     after they have successfully completed for monitoring purposes.
 
     :type redis: `aioredis.Redis`
-    :type queue: bytes
+    :type queue: str
     :type start: int
     :type end: int
 
@@ -107,7 +107,7 @@ def deferred_jobs(redis, queue, start=0, end=-1):
     job to finish in this registry.
 
     :type redis: `aioredis.Redis`
-    :type queue: bytes
+    :type queue: str
     :type start: int
     :type end: int
 
@@ -121,7 +121,7 @@ def queue_length(redis, name):
     """Get length of given queue.
 
     :type redis: `aioredis.Redis`
-    :type name: bytes
+    :type name: str
 
     """
 
@@ -133,11 +133,11 @@ def empty_queue(redis, name):
     """Removes all jobs on the queue.
 
     :type redis: `aioredis.Redis`
-    :type name: bytes
+    :type name: str
 
     """
 
-    script = b"""
+    script = """
         local prefix = "rq:job:"
         local q = KEYS[1]
         local count = 0
@@ -169,14 +169,14 @@ def enqueue_job(redis, queue, id, data, description, timeout,
     """Persists the job specification to it corresponding Redis id.
 
     :type redis: `aioredis.Redis`
-    :type queue: bytes
-    :type id: bytes
-    :type data: bytes
-    :type description: bytes
-    :type timeout: bytes
-    :type created_at: bytes
+    :type queue: str
+    :type id: str
+    :type data: str
+    :type description: str
+    :type timeout: str
+    :type created_at: str
     :type result_ttl: int or None or unset
-    :type dependency_id: bytes or unset
+    :type dependency_id: str or unset
     :type at_front: bool
 
     """
@@ -186,23 +186,23 @@ def enqueue_job(redis, queue, id, data, description, timeout,
     has_dependency = False
     if dependency_id is not unset:
         dependency_status = yield from job_status(redis, dependency_id)
-        if dependency_status != JobStatus.FINISHED:
+        if dependency_status != JobStatus.FINISHED.encode():
             has_dependency = True
     if has_dependency:
         status = JobStatus.DEFERRED
     else:
         status = JobStatus.QUEUED
     fields = (
-        b'origin', queue,
-        b'data', data,
-        b'description', description,
-        b'timeout', timeout,
-        b'created_at', created_at,
-        b'status', status)
+        'origin', queue,
+        'data', data,
+        'description', description,
+        'timeout', timeout,
+        'created_at', created_at,
+        'status', status)
     if result_ttl is not unset:
-        fields += (b'result_ttl', result_ttl)
+        fields += ('result_ttl', result_ttl)
     if not has_dependency:
-        fields += (b'enqueued_at', utcformat(utcnow()))
+        fields += ('enqueued_at', utcformat(utcnow()))
     multi = redis.multi_exec()
     multi.sadd(queues_key(), queue)
     multi.hmset(job_key(id), *fields)
@@ -224,7 +224,7 @@ def dequeue_job(redis, queue):
     """Dequeue the front-most job from this queue.
 
     :type redis: `aioredis.Redis`
-    :type queue: bytes
+    :type queue: str
 
     """
 
@@ -232,7 +232,7 @@ def dequeue_job(redis, queue):
         job_id = yield from redis.lpop(queue_key(queue))
         if not job_id:
             return None, {}
-        job_hash = yield from job(redis, job_id)
+        job_hash = yield from job(redis, job_id.decode())
         if not job_hash:
             continue
         return job_id, job_hash
@@ -243,8 +243,8 @@ def cancel_job(redis, queue, id):
     """Removes job from queue.
 
     :type redis: `aioredis.Redis`
-    :type queue: bytes
-    :type id: bytes
+    :type queue: str
+    :type id: str
 
     """
 
@@ -257,14 +257,14 @@ def start_job(redis, queue, id, timeout):
     """Start given job.
 
     :type redis: `aioredis.Redis`
-    :type queue: bytes
-    :type id: bytes
+    :type queue: str
+    :type id: str
     :type timeout: int
 
     """
 
-    fields = (b'status', JobStatus.STARTED,
-              b'started_at', utcformat(utcnow()))
+    fields = ('status', JobStatus.STARTED,
+              'started_at', utcformat(utcnow()))
     score = current_timestamp() + timeout + 60
     # TODO: worker heartbeat.
     multi = redis.multi_exec()
@@ -279,8 +279,8 @@ def finish_job(redis, queue, id, *, result_ttl=500):
     """Finish given job.
 
     :type redis: `aioredis.Redis`
-    :type queue: bytes
-    :type id: bytes
+    :type queue: str
+    :type id: str
     :type result_ttl: int
 
     """
@@ -290,8 +290,8 @@ def finish_job(redis, queue, id, *, result_ttl=500):
         # TODO: enqueue dependents
         return
     # TODO: set result
-    fields = (b'status', JobStatus.FINISHED,
-              b'ended_at', utcformat(utcnow()))
+    fields = ('status', JobStatus.FINISHED,
+              'ended_at', utcformat(utcnow()))
     score = result_ttl if result_ttl < 0 else current_timestamp() + result_ttl
     multi = redis.multi_exec()
     multi.zrem(started_registry(queue), id)
@@ -306,13 +306,14 @@ def finish_job(redis, queue, id, *, result_ttl=500):
         job_id = yield from redis.spop(dependents(id))
         if not job_id:
             break
-        origin = yield from redis.hget(job_key(job_id), b'origin')
+        job_id = job_id.decode()
+        origin = (yield from redis.hget(job_key(job_id), 'origin')).decode()
         multi = redis.multi_exec()
         multi.zrem(deferred_registry(origin), job_id)
         multi.rpush(queue_key(origin), job_id)
         multi.hmset(job_key(job_id),
-                    b'status', JobStatus.QUEUED,
-                    b'enqueued_at', utcformat(utcnow()))
+                    'status', JobStatus.QUEUED,
+                    'enqueued_at', utcformat(utcnow()))
         yield from multi.execute()
 
 
@@ -321,18 +322,18 @@ def fail_job(redis, queue, id, exc_info):
     """Puts the given job in failed queue.
 
     :type redis: `aioredis.Redis`
-    :type queue: bytes
-    :type id: bytes
-    :type exc_info: bytes
+    :type queue: str
+    :type id: str
+    :type exc_info: str
 
     """
 
     multi = redis.multi_exec()
     multi.sadd(queues_key(), failed_queue_key())
     multi.rpush(failed_queue_key(), id)
-    fields = (b'status', JobStatus.FAILED,
-              b'ended_at', utcformat(utcnow()),
-              b'exc_info', exc_info)
+    fields = ('status', JobStatus.FAILED,
+              'ended_at', utcformat(utcnow()),
+              'exc_info', exc_info)
     multi.hmset(job_key(id), *fields)
     multi.zrem(started_registry(queue), id)
     yield from multi.execute()
@@ -343,7 +344,7 @@ def requeue_job(redis, id):
     """Requeue job with the given job ID.
 
     :type redis: `aioredis.Redis`
-    :type id: bytes
+    :type id: str
 
     """
 
@@ -354,9 +355,9 @@ def requeue_job(redis, id):
     if not is_failed_job:
         raise InvalidOperationError('Cannot requeue non-failed job')
     multi = redis.multi_exec()
-    multi.hset(job_key(id), b'status', JobStatus.QUEUED)
-    multi.hdel(job_key(id), b'exc_info')
-    multi.rpush(queue_key(job[b'origin']), id)
+    multi.hset(job_key(id), 'status', JobStatus.QUEUED)
+    multi.hdel(job_key(id), 'exc_info')
+    multi.rpush(queue_key(job[b'origin'].decode()), id)
     yield from multi.execute()
 
 
@@ -376,23 +377,23 @@ def worker_birth(redis, id, queues, ttl=None):
     """Register worker birth.
 
     :type redis: `aioredis.Redis`
-    :type id: bytes
+    :type id: str
     :type queues: list
     :type ttl: int or None
 
     """
 
     if (yield from redis.exists(worker_key(id))):
-        if not (yield from redis.hexists(worker_key(id), b'death')):
+        if not (yield from redis.hexists(worker_key(id), 'death')):
             msg = 'There exists an active worker named {!r} already'.format(id)
             raise ValueError(msg)
     multi = redis.multi_exec()
     multi.delete(worker_key(id))
     multi.hmset(worker_key(id),
-                b'birth', utcformat(utcnow()),
-                b'queues', b','.join(queues),
-                b'status', WorkerStatus.STARTED,
-                b'current_job', b'not supported')
+                'birth', utcformat(utcnow()),
+                'queues', ','.join(queues),
+                'status', WorkerStatus.STARTED,
+                'current_job', 'not supported')
     multi.expire(worker_key(id), ttl or 420)
     multi.sadd(workers_key(), worker_key(id))
     yield from multi.execute()
@@ -403,15 +404,15 @@ def worker_death(redis, id):
     """Register worker death.
 
     :type redis: `aioredis.Redis`
-    :type id: bytes
+    :type id: str
 
     """
 
     multi = redis.multi_exec()
     multi.srem(workers_key(), worker_key(id))
     multi.hmset(worker_key(id),
-                b'death', utcformat(utcnow()),
-                b'status', WorkerStatus.IDLE)
+                'death', utcformat(utcnow()),
+                'status', WorkerStatus.IDLE)
     multi.expire(worker_key(id), 60)
     yield from multi.execute()
 
@@ -421,9 +422,9 @@ def worker_shutdown_requested(redis, id):
     """Set worker shutdown requested date.
 
     :type redis: `aioredis.Redis`
-    :type id: bytes
+    :type id: str
 
     """
 
     yield from redis.hset(
-        worker_key(id), b'shutdown_requested_date', utcformat(utcnow()))
+        worker_key(id), 'shutdown_requested_date', utcformat(utcnow()))

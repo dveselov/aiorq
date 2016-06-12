@@ -14,13 +14,13 @@ from .specs import JobStatus
 def queues_key():
     """Redis key for all named queues names."""
 
-    return b'rq:queues'
+    return 'rq:queues'
 
 
 def queue_key(name):
     """Redis key for named queue."""
 
-    return b'rq:queue:' + name
+    return 'rq:queue:' + name
 
 
 def failed_queue_key():
@@ -32,40 +32,40 @@ def failed_queue_key():
 def job_key(id):
     """Redis key for job hash."""
 
-    return b'rq:job:' + id
+    return 'rq:job:' + id
 
 
 def dependents(id):
     """Redis key for job dependents."""
 
-    return b'rq:job:' + id + b':dependents'
+    return 'rq:job:' + id + ':dependents'
 
 
 def started_registry(queue):
     """Redis key for started job registry."""
 
-    return b'rq:wip:' + queue
+    return 'rq:wip:' + queue
 
 
 def finished_registry(queue):
     """Redis key for finished job registry."""
 
-    return b'rq:finished:' + queue
+    return 'rq:finished:' + queue
 
 
 def deferred_registry(queue):
     """Redis key for deferred job registry."""
 
-    return b'rq:deferred:' + queue
+    return 'rq:deferred:' + queue
 
 
 def workers_key():
     """Redis key for workers set."""
 
-    return b'rq:workers'
+    return 'rq:workers'
 
 
 def worker_key(name):
     """Redis key for worker."""
 
-    return b'rq:worker:' + name
+    return 'rq:worker:' + name

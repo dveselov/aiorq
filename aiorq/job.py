@@ -55,8 +55,8 @@ def loads(redis, id, spec):
     """Create job instance from job id and protocol job spec."""
 
     job_id = id.decode()
-    created_at = utcparse(spec[b'created_at'])
-    enqueued_at = utcparse(spec[b'enqueued_at'])
+    created_at = utcparse(spec[b'created_at'].decode())
+    enqueued_at = utcparse(spec[b'enqueued_at'].decode())
     func_name, instance, args, kwargs = pickle.loads(spec[b'data'])
     if instance:
         func = getattr(instance, func_name)
@@ -108,7 +108,7 @@ class Job:
     def get_status(self):
         """Get job status asynchronously."""
 
-        status = yield from job_status(self.connection, self.id.encode())
+        status = yield from job_status(self.connection, self.id)
         self.status = status.decode()
         return self.status
 
@@ -116,41 +116,41 @@ class Job:
     @asyncio.coroutine
     def is_finished(self):
 
-        status = yield from job_status(self.connection, self.id.encode())
+        status = yield from job_status(self.connection, self.id)
         self.status = status.decode()
-        return status == JobStatus.FINISHED
+        return self.status == JobStatus.FINISHED
 
     @property
     @asyncio.coroutine
     def is_queued(self):
 
-        status = yield from job_status(self.connection, self.id.encode())
+        status = yield from job_status(self.connection, self.id)
         self.status = status.decode()
-        return status == JobStatus.QUEUED
+        return self.status == JobStatus.QUEUED
 
     @property
     @asyncio.coroutine
     def is_failed(self):
 
-        status = yield from job_status(self.connection, self.id.encode())
+        status = yield from job_status(self.connection, self.id)
         self.status = status.decode()
-        return status == JobStatus.FAILED
+        return self.status == JobStatus.FAILED
 
     @property
     @asyncio.coroutine
     def is_started(self):
 
-        status = yield from job_status(self.connection, self.id.encode())
+        status = yield from job_status(self.connection, self.id)
         self.status = status.decode()
-        return status == JobStatus.STARTED
+        return self.status == JobStatus.STARTED
 
     @property
     @asyncio.coroutine
     def is_deferred(self):
 
-        status = yield from job_status(self.connection, self.id.encode())
+        status = yield from job_status(self.connection, self.id)
         self.status = status.decode()
-        return status == JobStatus.DEFERRED
+        return self.status == JobStatus.DEFERRED
 
     @property
     @asyncio.coroutine

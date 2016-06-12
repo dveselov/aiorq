@@ -26,7 +26,7 @@ def test_queues(redis):
     """All redis queues."""
 
     yield from redis.sadd(queues_key(), stubs.queue)
-    assert (yield from queues(redis)) == [stubs.queue]
+    assert (yield from queues(redis)) == [stubs.queue.encode()]
 
 
 # Jobs.
@@ -35,16 +35,16 @@ def test_queues(redis):
 def test_jobs(redis):
     """All queue jobs."""
 
-    yield from redis.rpush(queue_key(stubs.queue), b'foo')
-    yield from redis.rpush(queue_key(stubs.queue), b'bar')
+    yield from redis.rpush(queue_key(stubs.queue), 'foo')
+    yield from redis.rpush(queue_key(stubs.queue), 'bar')
     assert set((yield from jobs(redis, stubs.queue))) == {b'foo', b'bar'}
 
 
 def test_jobs_args(redis):
     """Test jobs behavior with limit and offset arguments."""
 
-    yield from redis.rpush(queue_key(stubs.queue), b'foo')
-    yield from redis.rpush(queue_key(stubs.queue), b'bar')
+    yield from redis.rpush(queue_key(stubs.queue), 'foo')
+    yield from redis.rpush(queue_key(stubs.queue), 'bar')
     assert set((yield from jobs(redis, stubs.queue, 0, 0))) == {b'foo'}
 
 
@@ -55,7 +55,8 @@ def test_job(redis):
     """Get job hash by its id."""
 
     expected = {b'result_ttl': 5000}
-    expected.update({k.encode(): v for k, v in stubs.job.items()})
+    expected.update({k.encode(): v.encode() if isinstance(v, str) else v
+                     for k, v in stubs.job.items()})
     pairs = itertools.chain.from_iterable(expected.items())
     yield from redis.hmset(job_key(stubs.job_id), *pairs)
     assert (yield from job(redis, stubs.job_id)) == expected
@@ -67,8 +68,8 @@ def test_job(redis):
 def test_job_status(redis):
     """Get job status."""
 
-    yield from redis.hset(job_key(stubs.job_id), b'status', JobStatus.QUEUED)
-    assert (yield from job_status(redis, stubs.job_id)) == JobStatus.QUEUED
+    yield from redis.hset(job_key(stubs.job_id), 'status', JobStatus.QUEUED)
+    assert (yield from job_status(redis, stubs.job_id)) == JobStatus.QUEUED.encode()
 
 
 # Started jobs.
@@ -77,16 +78,16 @@ def test_job_status(redis):
 def test_started_jobs(redis):
     """All started jobs from this queue."""
 
-    yield from redis.zadd(started_registry(stubs.queue), 1, b'foo')
-    yield from redis.zadd(started_registry(stubs.queue), 2, b'bar')
+    yield from redis.zadd(started_registry(stubs.queue), 1, 'foo')
+    yield from redis.zadd(started_registry(stubs.queue), 2, 'bar')
     assert set((yield from started_jobs(redis, stubs.queue))) == {b'foo', b'bar'}
 
 
 def test_started_jobs_args(redis):
     """All started jobs from this queue limited by arguments."""
 
-    yield from redis.zadd(started_registry(stubs.queue), 1, b'foo')
-    yield from redis.zadd(started_registry(stubs.queue), 2, b'bar')
+    yield from redis.zadd(started_registry(stubs.queue), 1, 'foo')
+    yield from redis.zadd(started_registry(stubs.queue), 2, 'bar')
     assert set((yield from started_jobs(redis, stubs.queue, 0, 0))) == {b'foo'}
 
 
@@ -96,16 +97,16 @@ def test_started_jobs_args(redis):
 def test_finished_jobs(redis):
     """All jobs that have been completed."""
 
-    yield from redis.zadd(finished_registry(stubs.queue), 1, b'foo')
-    yield from redis.zadd(finished_registry(stubs.queue), 2, b'bar')
+    yield from redis.zadd(finished_registry(stubs.queue), 1, 'foo')
+    yield from redis.zadd(finished_registry(stubs.queue), 2, 'bar')
     assert set((yield from finished_jobs(redis, stubs.queue))) == {b'foo', b'bar'}
 
 
 def test_finished_jobs_args(redis):
     """All finished jobs from this queue limited by arguments."""
 
-    yield from redis.zadd(finished_registry(stubs.queue), 1, b'foo')
-    yield from redis.zadd(finished_registry(stubs.queue), 2, b'bar')
+    yield from redis.zadd(finished_registry(stubs.queue), 1, 'foo')
+    yield from redis.zadd(finished_registry(stubs.queue), 2, 'bar')
     assert set((yield from finished_jobs(redis, stubs.queue, 0, 0))) == {b'foo'}
 
 
@@ -115,16 +116,16 @@ def test_finished_jobs_args(redis):
 def test_deferred_jobs(redis):
     """All jobs that are waiting for another job to finish."""
 
-    yield from redis.zadd(deferred_registry(stubs.queue), 1, b'foo')
-    yield from redis.zadd(deferred_registry(stubs.queue), 2, b'bar')
+    yield from redis.zadd(deferred_registry(stubs.queue), 1, 'foo')
+    yield from redis.zadd(deferred_registry(stubs.queue), 2, 'bar')
     assert set((yield from deferred_jobs(redis, stubs.queue))) == {b'foo', b'bar'}
 
 
 def test_deferred_jobs_args(redis):
     """All deferred jobs from this queue limited by arguments."""
 
-    yield from redis.zadd(deferred_registry(stubs.queue), 1, b'foo')
-    yield from redis.zadd(deferred_registry(stubs.queue), 2, b'bar')
+    yield from redis.zadd(deferred_registry(stubs.queue), 1, 'foo')
+    yield from redis.zadd(deferred_registry(stubs.queue), 2, 'bar')
     assert set((yield from deferred_jobs(redis, stubs.queue, 0, 0))) == {b'foo'}
 
 
@@ -134,8 +135,8 @@ def test_deferred_jobs_args(redis):
 def test_queue_length(redis):
     """RQ queue size."""
 
-    yield from redis.rpush(queue_key(stubs.queue), b'foo')
-    yield from redis.rpush(queue_key(stubs.queue), b'bar')
+    yield from redis.rpush(queue_key(stubs.queue), 'foo')
+    yield from redis.rpush(queue_key(stubs.queue), 'bar')
     assert (yield from queue_length(redis, stubs.queue)) == 2
 
 
@@ -145,8 +146,8 @@ def test_queue_length(redis):
 def test_empty_queue(redis):
     """Emptying queue."""
 
-    yield from redis.rpush(queue_key(stubs.queue), b'foo')
-    yield from redis.rpush(queue_key(stubs.queue), b'bar')
+    yield from redis.rpush(queue_key(stubs.queue), 'foo')
+    yield from redis.rpush(queue_key(stubs.queue), 'bar')
     assert (yield from queue_length(redis, stubs.queue))
     yield from empty_queue(redis, stubs.queue)
     assert not (yield from queue_length(redis, stubs.queue))
@@ -180,30 +181,30 @@ def test_enqueue_job_store_job_hash(redis):
 
     yield from enqueue_job(redis=redis, **stubs.job)
     assert (yield from redis.type(job_key(stubs.job_id))) == b'hash'
-    assert (yield from redis.hget(job_key(stubs.job_id), b'data')) == stubs.job_data
+    assert (yield from redis.hget(job_key(stubs.job_id), 'data')) == stubs.job_data
 
 
 def test_enqueue_job_register_queue(redis):
     """Enqueue job will add its queue into queues storage."""
 
     yield from enqueue_job(redis=redis, **stubs.job)
-    assert (yield from queues(redis)) == [stubs.queue]
+    assert (yield from queues(redis)) == [stubs.queue.encode()]
 
 
 def test_enqueue_job_add_job_key_to_the_queue(redis):
     """Enqueue job must add its id to the queue."""
 
     yield from enqueue_job(redis=redis, **stubs.job)
-    queue_content = [stubs.job_id]
+    queue_content = [stubs.job_id.encode()]
     assert (yield from redis.lrange(queue_key(stubs.queue), 0, -1)) == queue_content
 
 
 def test_enqueue_job_at_front(redis):
     """Enqueue job at front must add its id to the front of the queue."""
 
-    yield from redis.lpush(queue_key(stubs.queue), b'xxx')
+    yield from redis.lpush(queue_key(stubs.queue), 'xxx')
     yield from enqueue_job(redis=redis, at_front=True, **stubs.job)
-    queue_content = [stubs.job_id, b'xxx']
+    queue_content = [stubs.job_id.encode(), b'xxx']
     assert (yield from redis.lrange(queue_key(stubs.queue), 0, -1)) == queue_content
 
 
@@ -211,21 +212,21 @@ def test_enqueue_job_set_job_status(redis):
     """Enqueue job must set job status to QUEUED."""
 
     yield from enqueue_job(redis=redis, **stubs.job)
-    assert (yield from job_status(redis, stubs.job_id)) == JobStatus.QUEUED
+    assert (yield from job_status(redis, stubs.job_id)) == JobStatus.QUEUED.encode()
 
 
 def test_enqueue_job_set_job_origin(redis):
     """Enqueue job must set jobs origin queue."""
 
     yield from enqueue_job(redis=redis, **stubs.job)
-    assert (yield from redis.hget(job_key(stubs.job_id), b'origin')) == stubs.queue
+    assert (yield from redis.hget(job_key(stubs.job_id), 'origin')) == stubs.queue.encode()
 
 
 def test_enqueue_job_set_job_enqueued_at(redis):
     """Enqueue job must set enqueued_at time."""
 
     yield from enqueue_job(redis=redis, **stubs.job)
-    utcparse((yield from redis.hget(job_key(stubs.job_id), b'enqueued_at')))
+    utcparse((yield from redis.hget(job_key(stubs.job_id), 'enqueued_at')).decode())
 
 
 def test_enqueue_job_dependent_status(redis):
@@ -233,7 +234,7 @@ def test_enqueue_job_dependent_status(redis):
 
     yield from enqueue_job(redis=redis, **stubs.job)
     yield from enqueue_job(redis=redis, **stubs.child_job)
-    assert (yield from job_status(redis, stubs.child_job_id)) == JobStatus.DEFERRED
+    assert (yield from job_status(redis, stubs.child_job_id)) == JobStatus.DEFERRED.encode()
 
 
 def test_enqueue_job_defer_dependent(redis):
@@ -241,7 +242,7 @@ def test_enqueue_job_defer_dependent(redis):
 
     yield from enqueue_job(redis=redis, **stubs.job)
     yield from enqueue_job(redis=redis, **stubs.child_job)
-    assert (yield from redis.lrange(queue_key(stubs.queue), 0, -1)) == [stubs.job_id]
+    assert (yield from redis.lrange(queue_key(stubs.queue), 0, -1)) == [stubs.job_id.encode()]
 
 
 def test_enqueue_job_finished_dependency(redis):
@@ -249,12 +250,13 @@ def test_enqueue_job_finished_dependency(redis):
 
     yield from enqueue_job(redis=redis, **stubs.job)
     stored_id, stored_spec = yield from dequeue_job(redis, stubs.queue)
-    queue = stored_spec[b'origin']
+    stored_id = stored_id.decode()
+    queue = stored_spec[b'origin'].decode()
     timeout = stored_spec[b'timeout']
     yield from start_job(redis, queue, stored_id, timeout)
     yield from finish_job(redis, queue, stored_id)
     yield from enqueue_job(redis=redis, **stubs.child_job)
-    assert (yield from redis.lrange(queue_key(stubs.queue), 0, -1)) == [stubs.child_job_id]
+    assert (yield from redis.lrange(queue_key(stubs.queue), 0, -1)) == [stubs.child_job_id.encode()]
 
 
 def test_enqueue_job_deferred_job_registry(redis):
@@ -262,7 +264,7 @@ def test_enqueue_job_deferred_job_registry(redis):
 
     yield from enqueue_job(redis=redis, **stubs.job)
     yield from enqueue_job(redis=redis, **stubs.child_job)
-    assert (yield from deferred_jobs(redis, stubs.queue)) == [stubs.child_job_id]
+    assert (yield from deferred_jobs(redis, stubs.queue)) == [stubs.child_job_id.encode()]
 
 
 def test_enqueue_job_dependents_set(redis):
@@ -270,7 +272,7 @@ def test_enqueue_job_dependents_set(redis):
 
     yield from enqueue_job(redis=redis, **stubs.job)
     yield from enqueue_job(redis=redis, **stubs.child_job)
-    assert (yield from redis.smembers(dependents(stubs.job_id))) == [stubs.child_job_id]
+    assert (yield from redis.smembers(dependents(stubs.job_id))) == [stubs.child_job_id.encode()]
 
 
 def test_enqueue_job_defer_without_date(redis):
@@ -278,7 +280,7 @@ def test_enqueue_job_defer_without_date(redis):
 
     yield from enqueue_job(redis=redis, **stubs.job)
     yield from enqueue_job(redis=redis, **stubs.child_job)
-    assert not (yield from redis.hexists(job_key(stubs.child_job_id), b'enqueued_at'))
+    assert not (yield from redis.hexists(job_key(stubs.child_job_id), 'enqueued_at'))
 
 
 # TODO: enqueue_job checks dependency status, it isn't finished, then
@@ -301,26 +303,26 @@ def test_dequeue_job(redis):
     yield from enqueue_job(redis=redis, result_ttl=5000, **stubs.job)
     stored_id, stored_spec = yield from dequeue_job(redis, stubs.queue)
     assert not (yield from queue_length(redis, stubs.queue))
-    assert stored_id == stubs.job_id
+    assert stored_id == stubs.job_id.encode()
     assert stored_spec == {
         b'created_at': b'2016-04-05T22:40:35Z',
         b'data': b'\x80\x04\x950\x00\x00\x00\x00\x00\x00\x00(\x8c\x19fixtures.some_calculation\x94NK\x03K\x04\x86\x94}\x94\x8c\x01z\x94K\x02st\x94.',  # noqa
         b'description': b'fixtures.some_calculation(3, 4, z=2)',
         b'timeout': 180,
         b'result_ttl': 5000,
-        b'status': JobStatus.QUEUED,
-        b'origin': stubs.queue,
-        b'enqueued_at': utcformat(utcnow()),
+        b'status': JobStatus.QUEUED.encode(),
+        b'origin': stubs.queue.encode(),
+        b'enqueued_at': utcformat(utcnow()).encode(),
     }
 
 
 def test_dequeue_job_no_such_job(redis):
     """Silently skip job ids from queue if there is no such job hash."""
 
-    yield from redis.rpush(queue_key(stubs.queue), b'foo')  # Job id without hash.
+    yield from redis.rpush(queue_key(stubs.queue), 'foo')  # Job id without hash.
     yield from enqueue_job(redis=redis, **stubs.job)
     stored_id, stored_spec = yield from dequeue_job(redis, stubs.queue)
-    assert stored_id == stubs.job_id
+    assert stored_id == stubs.job_id.encode()
 
 
 # Cancel job.
@@ -342,10 +344,11 @@ def test_start_job_sets_job_status(redis):
 
     yield from enqueue_job(redis=redis, **stubs.job)
     stored_id, stored_spec = yield from dequeue_job(redis, stubs.queue)
-    queue = stored_spec[b'origin']
+    stored_id = stored_id.decode()
+    queue = stored_spec[b'origin'].decode()
     timeout = stored_spec[b'timeout']
     yield from start_job(redis, queue, stored_id, timeout)
-    assert (yield from job_status(redis, stubs.job_id)) == JobStatus.STARTED
+    assert (yield from job_status(redis, stubs.job_id)) == JobStatus.STARTED.encode()
 
 
 def test_start_job_sets_started_time(redis):
@@ -353,11 +356,12 @@ def test_start_job_sets_started_time(redis):
 
     yield from enqueue_job(redis=redis, **stubs.job)
     stored_id, stored_spec = yield from dequeue_job(redis, stubs.queue)
-    queue = stored_spec[b'origin']
+    stored_id = stored_id.decode()
+    queue = stored_spec[b'origin'].decode()
     timeout = stored_spec[b'timeout']
     yield from start_job(redis, queue, stored_id, timeout)
-    started_at = yield from redis.hget(job_key(stubs.job_id), b'started_at')
-    assert started_at == utcformat(utcnow())
+    started_at = yield from redis.hget(job_key(stubs.job_id), 'started_at')
+    assert started_at == utcformat(utcnow()).encode()
 
 
 def test_start_job_add_job_to_registry(redis):
@@ -365,12 +369,13 @@ def test_start_job_add_job_to_registry(redis):
 
     yield from enqueue_job(redis=redis, **stubs.job)
     stored_id, stored_spec = yield from dequeue_job(redis, stubs.queue)
-    queue = stored_spec[b'origin']
+    stored_id = stored_id.decode()
+    queue = stored_spec[b'origin'].decode()
     timeout = stored_spec[b'timeout']
     yield from start_job(redis, queue, stored_id, timeout)
     score = current_timestamp() + stored_spec[b'timeout'] + 60
     started = yield from redis.zrange(started_registry(queue), withscores=True)
-    assert started == [stubs.job_id, score]
+    assert started == [stubs.job_id.encode(), score]
 
 
 def test_start_job_persist_job(redis):
@@ -379,7 +384,8 @@ def test_start_job_persist_job(redis):
     yield from enqueue_job(redis=redis, **stubs.job)
     yield from redis.expire(job_key(stubs.job_id), 3)
     stored_id, stored_spec = yield from dequeue_job(redis, stubs.queue)
-    queue = stored_spec[b'origin']
+    stored_id = stored_id.decode()
+    queue = stored_spec[b'origin'].decode()
     timeout = stored_spec[b'timeout']
     yield from start_job(redis, queue, stored_id, timeout)
     assert (yield from redis.ttl(job_key(stubs.job_id))) == -1
@@ -393,12 +399,13 @@ def test_finish_job_sets_ended_at(redis):
 
     yield from enqueue_job(redis=redis, **stubs.job)
     stored_id, stored_spec = yield from dequeue_job(redis, stubs.queue)
-    queue = stored_spec[b'origin']
+    stored_id = stored_id.decode()
+    queue = stored_spec[b'origin'].decode()
     timeout = stored_spec[b'timeout']
     yield from start_job(redis, queue, stored_id, timeout)
     yield from finish_job(redis, queue, stored_id)
-    ended_at = yield from redis.hget(job_key(stubs.job_id), b'ended_at')
-    assert ended_at == utcformat(utcnow())
+    ended_at = yield from redis.hget(job_key(stubs.job_id), 'ended_at')
+    assert ended_at == utcformat(utcnow()).encode()
 
 
 def test_finish_job_sets_corresponding_status(redis):
@@ -406,11 +413,12 @@ def test_finish_job_sets_corresponding_status(redis):
 
     yield from enqueue_job(redis=redis, **stubs.job)
     stored_id, stored_spec = yield from dequeue_job(redis, stubs.queue)
-    queue = stored_spec[b'origin']
+    stored_id = stored_id.decode()
+    queue = stored_spec[b'origin'].decode()
     timeout = stored_spec[b'timeout']
     yield from start_job(redis, queue, stored_id, timeout)
     yield from finish_job(redis, queue, stored_id)
-    assert (yield from job_status(redis, stubs.job_id)) == JobStatus.FINISHED
+    assert (yield from job_status(redis, stubs.job_id)) == JobStatus.FINISHED.encode()
 
 
 def test_finish_job_sets_results_ttl(redis):
@@ -418,7 +426,8 @@ def test_finish_job_sets_results_ttl(redis):
 
     yield from enqueue_job(redis=redis, **stubs.job)
     stored_id, stored_spec = yield from dequeue_job(redis, stubs.queue)
-    queue = stored_spec[b'origin']
+    stored_id = stored_id.decode()
+    queue = stored_spec[b'origin'].decode()
     timeout = stored_spec[b'timeout']
     yield from start_job(redis, queue, stored_id, timeout)
     yield from finish_job(redis, queue, stored_id)
@@ -430,7 +439,8 @@ def test_finish_job_use_custom_ttl(redis):
 
     yield from enqueue_job(redis=redis, result_ttl=5000, **stubs.job)
     stored_id, stored_spec = yield from dequeue_job(redis, stubs.queue)
-    queue = stored_spec[b'origin']
+    queue = stored_spec[b'origin'].decode()
+    stored_id = stored_id.decode()
     timeout = stored_spec[b'timeout']
     result_ttl = stored_spec[b'result_ttl']
     yield from start_job(redis, queue, stored_id, timeout)
@@ -443,7 +453,8 @@ def test_finish_job_remove_results_zero_ttl(redis):
 
     yield from enqueue_job(redis=redis, result_ttl=0, **stubs.job)
     stored_id, stored_spec = yield from dequeue_job(redis, stubs.queue)
-    queue = stored_spec[b'origin']
+    queue = stored_spec[b'origin'].decode()
+    stored_id = stored_id.decode()
     timeout = stored_spec[b'timeout']
     result_ttl = stored_spec[b'result_ttl']
     yield from start_job(redis, queue, stored_id, timeout)
@@ -456,7 +467,8 @@ def test_finish_job_non_expired_job(redis):
 
     yield from enqueue_job(redis=redis, result_ttl=None, **stubs.job)
     stored_id, stored_spec = yield from dequeue_job(redis, stubs.queue)
-    queue = stored_spec[b'origin']
+    queue = stored_spec[b'origin'].decode()
+    stored_id = stored_id.decode()
     timeout = stored_spec[b'timeout']
     result_ttl = stored_spec[b'result_ttl']
     yield from start_job(redis, queue, stored_id, timeout)
@@ -469,7 +481,8 @@ def test_finish_job_started_registry(redis):
 
     yield from enqueue_job(redis=redis, **stubs.job)
     stored_id, stored_spec = yield from dequeue_job(redis, stubs.queue)
-    queue = stored_spec[b'origin']
+    stored_id = stored_id.decode()
+    queue = stored_spec[b'origin'].decode()
     timeout = stored_spec[b'timeout']
     yield from start_job(redis, queue, stored_id, timeout)
     yield from finish_job(redis, queue, stored_id)
@@ -481,12 +494,13 @@ def test_finish_job_finished_registry(redis):
 
     yield from enqueue_job(redis=redis, **stubs.job)
     stored_id, stored_spec = yield from dequeue_job(redis, stubs.queue)
-    queue = stored_spec[b'origin']
+    stored_id = stored_id.decode()
+    queue = stored_spec[b'origin'].decode()
     timeout = stored_spec[b'timeout']
     yield from start_job(redis, queue, stored_id, timeout)
     yield from finish_job(redis, queue, stored_id)
     finish = yield from redis.zrange(finished_registry(queue), withscores=True)
-    assert finish == [stubs.job_id, current_timestamp() + 500]
+    assert finish == [stubs.job_id.encode(), current_timestamp() + 500]
 
 
 def test_finish_job_finished_registry_negative_ttl(redis):
@@ -494,13 +508,14 @@ def test_finish_job_finished_registry_negative_ttl(redis):
 
     yield from enqueue_job(redis=redis, result_ttl=None, **stubs.job)
     stored_id, stored_spec = yield from dequeue_job(redis, stubs.queue)
-    queue = stored_spec[b'origin']
+    queue = stored_spec[b'origin'].decode()
+    stored_id = stored_id.decode()
     timeout = stored_spec[b'timeout']
     result_ttl = stored_spec[b'result_ttl']
     yield from start_job(redis, queue, stored_id, timeout)
     yield from finish_job(redis, queue, stored_id, result_ttl=result_ttl)
     finish = yield from redis.zrange(finished_registry(queue), withscores=True)
-    assert finish == [stubs.job_id, -1]
+    assert finish == [stubs.job_id.encode(), -1]
 
 
 def test_finish_job_enqueue_dependents(redis):
@@ -509,11 +524,12 @@ def test_finish_job_enqueue_dependents(redis):
     yield from enqueue_job(redis=redis, **stubs.job)
     yield from enqueue_job(redis=redis, **stubs.child_job)
     stored_id, stored_spec = yield from dequeue_job(redis, stubs.queue)
-    queue = stored_spec[b'origin']
+    stored_id = stored_id.decode()
+    queue = stored_spec[b'origin'].decode()
     timeout = stored_spec[b'timeout']
     yield from start_job(redis, queue, stored_id, timeout)
     yield from finish_job(redis, queue, stored_id)
-    assert (yield from redis.lrange(queue_key(stubs.queue), 0, -1)) == [stubs.child_job_id]
+    assert (yield from redis.lrange(queue_key(stubs.queue), 0, -1)) == [stubs.child_job_id.encode()]
 
 
 def test_finish_job_enqueue_dependents_status(redis):
@@ -522,11 +538,12 @@ def test_finish_job_enqueue_dependents_status(redis):
     yield from enqueue_job(redis=redis, **stubs.job)
     yield from enqueue_job(redis=redis, **stubs.child_job)
     stored_id, stored_spec = yield from dequeue_job(redis, stubs.queue)
-    queue = stored_spec[b'origin']
+    stored_id = stored_id.decode()
+    queue = stored_spec[b'origin'].decode()
     timeout = stored_spec[b'timeout']
     yield from start_job(redis, queue, stored_id, timeout)
     yield from finish_job(redis, queue, stored_id)
-    assert (yield from redis.hget(job_key(stubs.child_job_id), b'status')) == JobStatus.QUEUED
+    assert (yield from redis.hget(job_key(stubs.child_job_id), 'status')) == JobStatus.QUEUED.encode()
 
 
 def test_finish_job_dependents_enqueue_date(redis):
@@ -535,12 +552,13 @@ def test_finish_job_dependents_enqueue_date(redis):
     yield from enqueue_job(redis=redis, **stubs.job)
     yield from enqueue_job(redis=redis, **stubs.child_job)
     stored_id, stored_spec = yield from dequeue_job(redis, stubs.queue)
-    queue = stored_spec[b'origin']
+    stored_id = stored_id.decode()
+    queue = stored_spec[b'origin'].decode()
     timeout = stored_spec[b'timeout']
     yield from start_job(redis, queue, stored_id, timeout)
     yield from finish_job(redis, queue, stored_id)
-    enqueued_at = yield from redis.hget(job_key(stubs.job_id), b'enqueued_at')
-    assert enqueued_at == utcformat(utcnow())
+    enqueued_at = yield from redis.hget(job_key(stubs.job_id), 'enqueued_at')
+    assert enqueued_at == utcformat(utcnow()).encode()
 
 
 def test_finish_job_cleanup_dependents(redis):
@@ -549,7 +567,8 @@ def test_finish_job_cleanup_dependents(redis):
     yield from enqueue_job(redis=redis, **stubs.job)
     yield from enqueue_job(redis=redis, **stubs.child_job)
     stored_id, stored_spec = yield from dequeue_job(redis, stubs.queue)
-    queue = stored_spec[b'origin']
+    stored_id = stored_id.decode()
+    queue = stored_spec[b'origin'].decode()
     timeout = stored_spec[b'timeout']
     yield from start_job(redis, queue, stored_id, timeout)
     yield from finish_job(redis, queue, stored_id)
@@ -562,7 +581,8 @@ def test_finish_job_dependents_defered_registry(redis):
     yield from enqueue_job(redis=redis, **stubs.job)
     yield from enqueue_job(redis=redis, **stubs.child_job)
     stored_id, stored_spec = yield from dequeue_job(redis, stubs.queue)
-    queue = stored_spec[b'origin']
+    stored_id = stored_id.decode()
+    queue = stored_spec[b'origin'].decode()
     timeout = stored_spec[b'timeout']
     yield from start_job(redis, queue, stored_id, timeout)
     yield from finish_job(redis, queue, stored_id)
@@ -576,14 +596,14 @@ def test_fail_job_registers_failed_queue(redis):
     """Register failed queue on quarantine job."""
 
     yield from fail_job(redis, stubs.queue, stubs.job_id, stubs.job_exc_info)
-    assert (yield from queues(redis)) == [failed_queue_key()]
+    assert (yield from queues(redis)) == [failed_queue_key().encode()]
 
 
 def test_fail_job_enqueue_into_faileld_queue(redis):
     """Failed job appears in the failed queue."""
 
     yield from fail_job(redis, stubs.queue, stubs.job_id, stubs.job_exc_info)
-    assert stubs.job_id in (yield from jobs(redis, b'failed'))
+    assert stubs.job_id.encode() in (yield from jobs(redis, 'failed'))
 
 
 def test_fail_job_set_status(redis):
@@ -591,23 +611,23 @@ def test_fail_job_set_status(redis):
 
     yield from enqueue_job(redis=redis, **stubs.job)
     yield from fail_job(redis, stubs.queue, stubs.job_id, stubs.job_exc_info)
-    assert (yield from job_status(redis, stubs.job_id)) == JobStatus.FAILED
+    assert (yield from job_status(redis, stubs.job_id)) == JobStatus.FAILED.encode()
 
 
 def test_fail_job_sets_ended_at(redis):
     """Failed job should have ended at time."""
 
     yield from fail_job(redis, stubs.queue, stubs.job_id, stubs.job_exc_info)
-    ended_at = yield from redis.hget(job_key(stubs.job_id), b'ended_at')
-    assert ended_at == utcformat(utcnow())
+    ended_at = yield from redis.hget(job_key(stubs.job_id), 'ended_at')
+    assert ended_at == utcformat(utcnow()).encode()
 
 
 def test_fail_job_sets_exc_info(redis):
     """Failed job should have exception information."""
 
     yield from fail_job(redis, stubs.queue, stubs.job_id, stubs.job_exc_info)
-    exc_info = yield from redis.hget(job_key(stubs.job_id), b'exc_info')
-    assert exc_info == stubs.job_exc_info
+    exc_info = yield from redis.hget(job_key(stubs.job_id), 'exc_info')
+    assert exc_info == stubs.job_exc_info.encode()
 
 
 def test_fail_job_removes_from_started_registry(redis):
@@ -615,11 +635,12 @@ def test_fail_job_removes_from_started_registry(redis):
 
     yield from enqueue_job(redis=redis, **stubs.job)
     stored_id, stored_spec = yield from dequeue_job(redis, stubs.queue)
-    queue = stored_spec[b'origin']
+    stored_id = stored_id.decode()
+    queue = stored_spec[b'origin'].decode()
     timeout = stored_spec[b'timeout']
     yield from start_job(redis, queue, stored_id, timeout)
     yield from fail_job(redis, stubs.queue, stubs.job_id, stubs.job_exc_info)
-    assert stubs.job_id not in (yield from started_jobs(redis, queue))
+    assert stubs.job_id.encode() not in (yield from started_jobs(redis, queue))
 
 
 # Requeue job.
@@ -631,8 +652,8 @@ def test_requeue_job_set_status(redis):
     yield from enqueue_job(redis=redis, **stubs.job)
     stored_id, stored_spec = yield from dequeue_job(redis, stubs.queue)
     yield from fail_job(redis, stubs.queue, stubs.job_id, stubs.job_exc_info)
-    yield from requeue_job(redis, stored_id)
-    assert (yield from job_status(redis, stubs.job_id)) == JobStatus.QUEUED
+    yield from requeue_job(redis, stored_id.decode())
+    assert (yield from job_status(redis, stubs.job_id)) == JobStatus.QUEUED.encode()
 
 
 def test_requeue_job_clean_exc_info(redis):
@@ -641,8 +662,8 @@ def test_requeue_job_clean_exc_info(redis):
     yield from enqueue_job(redis=redis, **stubs.job)
     stored_id, stored_spec = yield from dequeue_job(redis, stubs.queue)
     yield from fail_job(redis, stubs.queue, stubs.job_id, stubs.job_exc_info)
-    yield from requeue_job(redis, stored_id)
-    assert not (yield from redis.hget(job_key(stubs.job_id), b'exc_info'))
+    yield from requeue_job(redis, stored_id.decode())
+    assert not (yield from redis.hget(job_key(stubs.job_id), 'exc_info'))
 
 
 def test_requeue_job_enqueue_into_origin(redis):
@@ -651,8 +672,8 @@ def test_requeue_job_enqueue_into_origin(redis):
     yield from enqueue_job(redis=redis, **stubs.job)
     stored_id, stored_spec = yield from dequeue_job(redis, stubs.queue)
     yield from fail_job(redis, stubs.queue, stubs.job_id, stubs.job_exc_info)
-    yield from requeue_job(redis, stored_id)
-    assert stubs.job_id in (yield from jobs(redis, stubs.queue))
+    yield from requeue_job(redis, stored_id.decode())
+    assert stubs.job_id.encode() in (yield from jobs(redis, stubs.queue))
 
 
 def test_requeue_job_removes_non_existing_job(redis):
@@ -662,7 +683,7 @@ def test_requeue_job_removes_non_existing_job(redis):
 
     yield from redis.rpush(failed_queue_key(), stubs.job_id)
     yield from requeue_job(redis, stubs.job_id)
-    assert not (yield from jobs(redis, b'failed'))
+    assert not (yield from jobs(redis, 'failed'))
 
 
 def test_requeue_job_error_on_non_failed_job(redis):
@@ -679,8 +700,8 @@ def test_requeue_job_error_on_non_failed_job(redis):
 def test_workers(redis):
     """Get all worker keys."""
 
-    yield from redis.sadd(workers_key(), b'foo')
-    yield from redis.sadd(workers_key(), b'bar')
+    yield from redis.sadd(workers_key(), 'foo')
+    yield from redis.sadd(workers_key(), 'bar')
     assert set((yield from workers(redis))) == {b'foo', b'bar'}
 
 
@@ -690,68 +711,68 @@ def test_workers(redis):
 def test_worker_birth_workers_set(redis):
     """Add worker to the workers set."""
 
-    yield from worker_birth(redis, b'foo', [b'bar', b'baz'])
-    assert (yield from redis.smembers(workers_key())) == [worker_key(b'foo')]
+    yield from worker_birth(redis, 'foo', ['bar', 'baz'])
+    assert (yield from redis.smembers(workers_key())) == [worker_key('foo').encode()]
 
 
 def test_worker_birth_sets_birth_date(redis):
     """Set worker birth date."""
 
-    yield from worker_birth(redis, b'foo', [b'bar', b'baz'])
-    birth = utcformat(utcnow())
-    assert (yield from redis.hget(worker_key(b'foo'), b'birth')) == birth
+    yield from worker_birth(redis, 'foo', ['bar', 'baz'])
+    birth = utcformat(utcnow()).encode()
+    assert (yield from redis.hget(worker_key('foo'), 'birth')) == birth
 
 
 def test_worker_birth_sets_queue_names(redis):
     """Set worker queue names."""
 
-    yield from worker_birth(redis, b'foo', [b'bar', b'baz'])
-    assert (yield from redis.hget(worker_key(b'foo'), b'queues')) == b'bar,baz'
+    yield from worker_birth(redis, 'foo', ['bar', 'baz'])
+    assert (yield from redis.hget(worker_key('foo'), 'queues')) == b'bar,baz'
 
 
 def test_worker_birth_removes_old_hash(redis):
     """Remove old hash stored from the previous run."""
 
-    yield from redis.hmset(worker_key(b'foo'), b'bar', b'baz', b'death', 0)
-    yield from worker_birth(redis, b'foo', [b'bar', b'baz'])
-    assert not (yield from redis.hget(worker_key(b'foo'), b'bar'))
+    yield from redis.hmset(worker_key('foo'), 'bar', 'baz', 'death', 0)
+    yield from worker_birth(redis, 'foo', ['bar', 'baz'])
+    assert not (yield from redis.hget(worker_key('foo'), 'bar'))
 
 
 def test_worker_birth_sets_worker_ttl(redis):
     """Set worker ttl."""
 
-    yield from worker_birth(redis, b'foo', [b'bar', b'baz'])
-    assert (yield from redis.ttl(worker_key(b'foo'))) == 420
+    yield from worker_birth(redis, 'foo', ['bar', 'baz'])
+    assert (yield from redis.ttl(worker_key('foo'))) == 420
 
 
 def test_worker_birth_sets_custom_worker_ttl(redis):
     """Set custom worker ttl."""
 
-    yield from worker_birth(redis, b'foo', [b'bar', b'baz'], 1000)
-    assert (yield from redis.ttl(worker_key(b'foo'))) == 1000
+    yield from worker_birth(redis, 'foo', ['bar', 'baz'], 1000)
+    assert (yield from redis.ttl(worker_key('foo'))) == 1000
 
 
 def test_worker_birth_fail_worker_exists(redis):
     """Register birth will fail with worker which already exists."""
 
-    yield from redis.hset(worker_key(b'foo'), b'bar', b'baz')
+    yield from redis.hset(worker_key('foo'), 'bar', 'baz')
     with pytest.raises(ValueError):
-        yield from worker_birth(redis, b'foo', [b'bar', b'baz'])
+        yield from worker_birth(redis, 'foo', ['bar', 'baz'])
 
 
 def test_worker_birth_worker_status(redis):
     """Register birth sets worker status to STARTED."""
 
-    yield from worker_birth(redis, b'foo', [b'bar', b'baz'])
-    status = yield from redis.hget(worker_key(b'foo'), b'status')
-    assert status == WorkerStatus.STARTED
+    yield from worker_birth(redis, 'foo', ['bar', 'baz'])
+    status = yield from redis.hget(worker_key('foo'), 'status')
+    assert status == WorkerStatus.STARTED.encode()
 
 
 def test_worker_birth_current_job(redis):
     """Signify that aiorq doesn't support current_job worker attribute."""
 
-    yield from worker_birth(redis, b'foo', [b'bar', b'baz'])
-    current_job = yield from redis.hget(worker_key(b'foo'), b'current_job')
+    yield from worker_birth(redis, 'foo', ['bar', 'baz'])
+    current_job = yield from redis.hget(worker_key('foo'), 'current_job')
     assert current_job == b'not supported'
 
 
@@ -761,35 +782,35 @@ def test_worker_birth_current_job(redis):
 def test_worker_death_workers_set(redis):
     """Remove worker from workers set."""
 
-    yield from worker_birth(redis, b'foo', [b'bar', b'baz'])
-    yield from worker_death(redis, b'foo')
+    yield from worker_birth(redis, 'foo', ['bar', 'baz'])
+    yield from worker_death(redis, 'foo')
     assert not (yield from redis.smembers(workers_key()))
 
 
 def test_worker_death_sets_death_date(redis):
     """Set worker death date."""
 
-    yield from worker_birth(redis, b'foo', [b'bar', b'baz'])
-    yield from worker_death(redis, b'foo')
-    death = utcformat(utcnow())
-    assert (yield from redis.hget(worker_key(b'foo'), b'death')) == death
+    yield from worker_birth(redis, 'foo', ['bar', 'baz'])
+    yield from worker_death(redis, 'foo')
+    death = utcformat(utcnow()).encode()
+    assert (yield from redis.hget(worker_key('foo'), 'death')) == death
 
 
 def test_worker_death_sets_worker_ttl(redis):
     """Set worker hash ttl."""
 
-    yield from worker_birth(redis, b'foo', [b'bar', b'baz'])
-    yield from worker_death(redis, b'foo')
-    assert (yield from redis.ttl(worker_key(b'foo'))) == 60
+    yield from worker_birth(redis, 'foo', ['bar', 'baz'])
+    yield from worker_death(redis, 'foo')
+    assert (yield from redis.ttl(worker_key('foo'))) == 60
 
 
 def test_worker_death_sets_status(redis):
     """Set worker status to IDLE."""
 
-    yield from worker_birth(redis, b'foo', [b'bar', b'baz'])
-    yield from worker_death(redis, b'foo')
-    status = yield from redis.hget(worker_key(b'foo'), b'status')
-    assert status == WorkerStatus.IDLE
+    yield from worker_birth(redis, 'foo', ['bar', 'baz'])
+    yield from worker_death(redis, 'foo')
+    status = yield from redis.hget(worker_key('foo'), 'status')
+    assert status == WorkerStatus.IDLE.encode()
 
 
 # Worker shutdown requested.
@@ -798,8 +819,8 @@ def test_worker_death_sets_status(redis):
 def test_worker_shutdown_requested(redis):
     """Set worker shutdown requested date."""
 
-    yield from worker_birth(redis, b'foo', [b'bar', b'baz'])
-    yield from worker_shutdown_requested(redis, b'foo')
+    yield from worker_birth(redis, 'foo', ['bar', 'baz'])
+    yield from worker_shutdown_requested(redis, 'foo')
     shutdown = yield from redis.hget(
-        worker_key(b'foo'), b'shutdown_requested_date')
-    assert shutdown == utcformat(utcnow())
+        worker_key('foo'), 'shutdown_requested_date')
+    assert shutdown == utcformat(utcnow()).encode()

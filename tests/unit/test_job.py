@@ -31,7 +31,7 @@ def test_loads(redis):
         b'description': b'fixtures.some_calculation(3, 4, z=2)',
         b'timeout': 180,
         b'result_ttl': 5000,
-        b'status': JobStatus.QUEUED,
+        b'status': JobStatus.QUEUED.encode(),
         b'origin': b'default',
         b'enqueued_at': b'2016-05-03T12:10:11Z',
     }
@@ -60,7 +60,7 @@ def test_loads_instance_method(redis):
         b'description': b'div(4)',
         b'timeout': 180,
         b'result_ttl': 5000,
-        b'status': JobStatus.QUEUED,
+        b'status': JobStatus.QUEUED.encode(),
         b'origin': b'default',
         b'enqueued_at': b'2016-05-03T12:10:11Z',
     }
@@ -90,7 +90,7 @@ def test_loads_unreadable_data(redis):
         b'description': b'fixtures.some_calculation(3, 4, z=2)',
         b'timeout': 180,
         b'result_ttl': 5000,
-        b'status': JobStatus.QUEUED,
+        b'status': JobStatus.QUEUED.encode(),
         b'origin': b'default',
         b'enqueued_at': b'2016-05-03T12:10:11Z',
     }
@@ -109,7 +109,7 @@ def test_loads_unimportable_data(redis):
         b'description': b"fixtures.say_hello('Lionel')",
         b'timeout': 180,
         b'result_ttl': 5000,
-        b'status': JobStatus.QUEUED,
+        b'status': JobStatus.QUEUED.encode(),
         b'origin': b'default',
         b'enqueued_at': b'2016-05-03T12:10:11Z',
     }
@@ -145,21 +145,21 @@ def test_job_status(redis):
         origin='default',
         created_at=datetime(2016, 4, 5, 22, 40, 35))
     # TODO: use queue methods here?
-    yield from enqueue_job(redis, b'default',
-                           b'56e6ba45-1aa3-4724-8c9f-51b7b0031cee', b'xxx',
-                           b'fixtures.some_calculation(3, 4, z=2)', 180,
-                           b'2016-04-05T22:40:35Z')
+    yield from enqueue_job(redis, 'default',
+                           '56e6ba45-1aa3-4724-8c9f-51b7b0031cee', b'xxx',
+                           'fixtures.some_calculation(3, 4, z=2)', 180,
+                           '2016-04-05T22:40:35Z')
     assert (yield from job.is_queued)
-    yield from dequeue_job(redis, b'default')
-    yield from start_job(redis, b'default',
-                         b'56e6ba45-1aa3-4724-8c9f-51b7b0031cee', 180)
+    yield from dequeue_job(redis, 'default')
+    yield from start_job(redis, 'default',
+                         '56e6ba45-1aa3-4724-8c9f-51b7b0031cee', 180)
     assert (yield from job.is_started)
-    yield from finish_job(redis, b'default',
-                          b'56e6ba45-1aa3-4724-8c9f-51b7b0031cee')
+    yield from finish_job(redis, 'default',
+                          '56e6ba45-1aa3-4724-8c9f-51b7b0031cee')
     assert (yield from job.is_finished)
-    yield from fail_job(redis, b'default',
-                        b'56e6ba45-1aa3-4724-8c9f-51b7b0031cee',
-                        b"Exception('We are here')")
+    yield from fail_job(redis, 'default',
+                        '56e6ba45-1aa3-4724-8c9f-51b7b0031cee',
+                        "Exception('We are here')")
     assert (yield from job.is_failed)
     job = Job(
         connection=redis,
@@ -173,14 +173,14 @@ def test_job_status(redis):
         result_ttl=5000,
         origin='default',
         dependency_id=job.id)
-    yield from enqueue_job(redis, b'default',
-                           b'2a5079e7-387b-492f-a81c-68aa55c194c8', b'xxx',
-                           b'fixtures.some_calculation(3, 4, z=2)', 180,
-                           b'2016-04-05T22:40:35Z',
-                           dependency_id=b'56e6ba45-1aa3-4724-8c9f-51b7b0031cee')
+    yield from enqueue_job(redis, 'default',
+                           '2a5079e7-387b-492f-a81c-68aa55c194c8', b'xxx',
+                           'fixtures.some_calculation(3, 4, z=2)', 180,
+                           '2016-04-05T22:40:35Z',
+                           dependency_id='56e6ba45-1aa3-4724-8c9f-51b7b0031cee')
     assert (yield from job.is_deferred)
     status = yield from job.get_status()
-    assert status == 'deferred'
+    assert status == JobStatus.DEFERRED
 
 
 # TODO: persist job meta dict as pickle

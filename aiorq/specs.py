@@ -11,16 +11,16 @@
 
 class JobStatus:
 
-    QUEUED = b'queued'
-    FINISHED = b'finished'
-    FAILED = b'failed'
-    STARTED = b'started'
-    DEFERRED = b'deferred'
+    QUEUED = 'queued'
+    FINISHED = 'finished'
+    FAILED = 'failed'
+    STARTED = 'started'
+    DEFERRED = 'deferred'
 
 
 class WorkerStatus:
 
-    STARTED = b'started'
-    SUSPENDED = b'suspended'
-    BUSY = b'busy'
-    IDLE = b'idle'
+    STARTED = 'started'
+    SUSPENDED = 'suspended'
+    BUSY = 'busy'
+    IDLE = 'idle'

@@ -23,12 +23,12 @@ def current_timestamp():
     return timegm(datetime.utcnow().utctimetuple())
 
 
-def utcparse(byte):
-    return datetime.strptime(byte.decode(), '%Y-%m-%dT%H:%M:%SZ')
+def utcparse(timestring):
+    return datetime.strptime(timestring, '%Y-%m-%dT%H:%M:%SZ')
 
 
 def utcformat(dt):
-    return dt.strftime('%Y-%m-%dT%H:%M:%SZ').encode()
+    return dt.strftime('%Y-%m-%dT%H:%M:%SZ')
 
 
 def utcnow():
