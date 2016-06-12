@@ -17,7 +17,7 @@ import uuid
 from . import protocol
 from .exceptions import (NoSuchJobError, UnpickleError,
                          DequeueTimeout, InvalidJobOperationError)
-from .job import Job, loads
+from .job import Job, create_job
 
 
 def get_failed_queue(connection=None):
@@ -101,7 +101,7 @@ class Queue:
         for job_id in job_ids:
             job = yield from self.protocol.job(self.connection, job_id)
             # FIXME: use job_id.encode() is stupid.
-            jobs.append(loads(self.connection, job_id.encode(), job))
+            jobs.append(create_job(self.connection, job_id.encode(), job))
         return jobs
 
     @property

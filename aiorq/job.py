@@ -51,7 +51,7 @@ def get_current_job(connection=None):
     return None
 
 
-def loads(redis, id, spec):
+def create_job(redis, id, spec):
     """Create job instance from job id and protocol job spec."""
 
     job_id = id.decode()

@@ -8,7 +8,7 @@ import pytest
 from aiorq import (cancel_job, get_current_job, requeue_job, Queue,
                    get_failed_queue, Worker)
 from aiorq.exceptions import NoSuchJobError
-from aiorq.job import Job, loads, description
+from aiorq.job import Job, create_job, description
 from aiorq.protocol import (enqueue_job, dequeue_job, start_job,
                             finish_job, fail_job)
 from aiorq.specs import JobStatus
@@ -19,11 +19,11 @@ from fixtures import (Number, some_calculation, say_hello,
 from helpers import strip_microseconds
 
 
-# Loads.
+# Create job.
 
 
-def test_loads(redis):
-    """Loads job form the job spec."""
+def test_create_job(redis):
+    """Create job job form the job spec."""
 
     id = b'2a5079e7-387b-492f-a81c-68aa55c194c8'
     spec = {
@@ -36,7 +36,7 @@ def test_loads(redis):
         b'origin': b'default',
         b'enqueued_at': b'2016-05-03T12:10:11Z',
     }
-    job = loads(redis, id, spec)
+    job = create_job(redis, id, spec)
     assert job.connection == redis
     assert job.id == '2a5079e7-387b-492f-a81c-68aa55c194c8'
     assert job.created_at == datetime(2016, 4, 5, 22, 40, 35)
@@ -51,8 +51,8 @@ def test_loads(redis):
     assert job.enqueued_at == datetime(2016, 5, 3, 12, 10, 11)
 
 
-def test_loads_instance_method(redis):
-    """Loads instance method job form the job spec."""
+def test_create_job_instance_method(redis):
+    """Create job instance method job form the job spec."""
 
     id = b'2a5079e7-387b-492f-a81c-68aa55c194c8'
     spec = {
@@ -65,7 +65,7 @@ def test_loads_instance_method(redis):
         b'origin': b'default',
         b'enqueued_at': b'2016-05-03T12:10:11Z',
     }
-    job = loads(redis, id, spec)
+    job = create_job(redis, id, spec)
     assert job.connection == redis
     assert job.id == '2a5079e7-387b-492f-a81c-68aa55c194c8'
     assert job.created_at == datetime(2016, 4, 5, 22, 40, 35)
@@ -81,8 +81,8 @@ def test_loads_instance_method(redis):
     assert job.enqueued_at == datetime(2016, 5, 3, 12, 10, 11)
 
 
-def test_loads_unreadable_data(redis):
-    """Loads unreadable pickle string will raise UnpickleError."""
+def test_create_job_unreadable_data(redis):
+    """Create job unreadable pickle string will raise UnpickleError."""
 
     id = b'2a5079e7-387b-492f-a81c-68aa55c194c8'
     spec = {
@@ -96,11 +96,11 @@ def test_loads_unreadable_data(redis):
         b'enqueued_at': b'2016-05-03T12:10:11Z',
     }
     with pytest.raises(UnpicklingError):
-        loads(redis, id, spec)
+        create_job(redis, id, spec)
 
 
-def test_loads_unimportable_data(redis):
-    """Loads unimportable data will raise attribute error."""
+def test_create_job_unimportable_data(redis):
+    """Create job unimportable data will raise attribute error."""
 
     id = b'2a5079e7-387b-492f-a81c-68aa55c194c8'
     spec = {
@@ -115,7 +115,7 @@ def test_loads_unimportable_data(redis):
         b'enqueued_at': b'2016-05-03T12:10:11Z',
     }
     with pytest.raises(AttributeError):
-        loads(redis, id, spec)
+        create_job(redis, id, spec)
 
 
 # Description.
