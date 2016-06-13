@@ -69,8 +69,10 @@ def test_queue_order():
     assert q3 > q2
 
 
-def test_empty_queue(redis):
+def test_empty_queue():
     """Emptying queues."""
+
+    redis = object()
 
     class Protocol:
         @staticmethod
@@ -87,9 +89,10 @@ def test_empty_queue(redis):
     assert (yield from q.empty()) == 2
 
 
-def test_queue_is_empty(redis):
+def test_queue_is_empty():
     """Detecting empty queues."""
 
+    redis = object()
     lengths = [2, 0]
 
     class Protocol:
@@ -108,8 +111,10 @@ def test_queue_is_empty(redis):
     assert (yield from q.is_empty())
 
 
-def test_queue_count(redis):
+def test_queue_count():
     """Count all messages in the queue."""
+
+    redis = object()
 
     class Protocol:
         @staticmethod
@@ -126,9 +131,10 @@ def test_queue_count(redis):
     assert (yield from q.count) == 3
 
 
-def test_remove(redis):
+def test_remove():
     """Ensure queue.remove properly removes Job from queue."""
 
+    redis = object()
     sentinel = []
 
     class Protocol:
@@ -162,8 +168,10 @@ def test_remove(redis):
     assert len(sentinel) == 2
 
 
-def test_jobs(redis):
+def test_jobs():
     """Getting jobs out of a queue."""
+
+    redis = object()
 
     class Protocol:
         @staticmethod
@@ -205,9 +213,10 @@ def test_jobs(redis):
 # TODO: test get_job_ids offset and length behavior.
 
 
-def test_compact(redis):
+def test_compact():
     """Queue.compact() removes non-existing jobs."""
 
+    redis = object()
     q = Queue()
 
     yield from q.enqueue(say_hello, 'Alice')
@@ -219,9 +228,10 @@ def test_compact(redis):
     assert (yield from q.count) == 2
 
 
-def test_enqueue(redis):
+def test_enqueue():
     """Enqueueing job onto queues."""
 
+    redis = object()
     q = Queue()
     assert (yield from q.is_empty())
 
@@ -469,11 +479,12 @@ def test_all_queues(loop):
     assert len((yield from Queue.all())) == 3
 
 
-def test_enqueue_dependents(redis):
+def test_enqueue_dependents():
     """Enqueueing dependent jobs pushes all jobs in the depends set to the
     queue and removes them from DeferredJobQueue.
     """
 
+    redis = object()
     q = Queue()
     parent_job = Job.create(func=say_hello)
     yield from parent_job.save()
@@ -493,12 +504,13 @@ def test_enqueue_dependents(redis):
     assert not (yield from registry.get_job_ids())
 
 
-def test_enqueue_dependents_on_multiple_queues(redis):
+def test_enqueue_dependents_on_multiple_queues():
     """Enqueueing dependent jobs on multiple queues pushes jobs in the
     queues and removes them from DeferredJobRegistry for each
     different queue.
     """
 
+    redis = object()
     q1 = Queue("queue_1")
     q2 = Queue("queue_2")
     parent_job = Job.create(func=say_hello)
