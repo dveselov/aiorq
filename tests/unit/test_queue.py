@@ -3,11 +3,12 @@ import pytest
 from datetime import datetime
 
 import stubs
+import helpers
 from aiorq import Queue, get_failed_queue, Worker
 from aiorq.exceptions import InvalidJobOperationError, DequeueTimeout
 from aiorq.job import Job
 from aiorq.specs import JobStatus
-from aiorq.utils import utcformat, utcnow
+from aiorq.utils import unset, utcformat, utcnow
 from fixtures import say_hello, Number, echo, div_by_zero
 
 
@@ -231,20 +232,40 @@ def test_compact():
 def test_enqueue():
     """Enqueueing job onto queues."""
 
-    redis = object()
-    q = Queue()
-    assert (yield from q.is_empty())
+    connection = object()
+    uuids = []
 
-    # say_hello spec holds which queue this is sent to
+    class Protocol:
+        @staticmethod
+        @asyncio.coroutine
+        def enqueue_job(redis, queue, id, data, description, timeout,
+                        created_at, *, result_ttl=unset, dependency_id=unset,
+                        at_front=False):
+            assert redis is connection
+            assert queue == 'example'
+            assert isinstance(id, str)
+            assert data == b'\x80\x04\x952\x00\x00\x00\x00\x00\x00\x00(\x8c\x12fixtures.say_hello\x94N\x8c\x04Nick\x94\x85\x94}\x94\x8c\x03foo\x94\x8c\x03bar\x94st\x94.' # noqa
+            assert description == "fixtures.say_hello('Nick', foo='bar')"
+            assert timeout == 180
+            assert created_at == utcformat(utcnow())
+            assert result_ttl is unset
+            assert dependency_id is unset
+            assert at_front is False
+            uuids.append(id)
+            return
+
+    class TestQueue(Queue):
+        protocol = Protocol()
+
+    q = TestQueue('example', connection=connection)
+
     job = yield from q.enqueue(say_hello, 'Nick', foo='bar')
-    job_id = job.id
+
+    assert job.connection is connection
+    assert job.id == uuids.pop(0)
     assert job.origin == q.name
-
-    # Inspect data inside Redis
-    q_key = 'rq:queue:default'
-    assert 1 == (yield from redis.llen(q_key))
-    assert job_id == (yield from redis.lrange(q_key, 0, -1))[0].decode('ascii')
-
+    assert helpers.strip_microseconds(job.created_at) == helpers.strip_microseconds(utcnow())
+    # TODO: assert all job fields.
 
 def test_enqueue_sets_metadata():
     """Enqueueing job onto queues modifies meta data."""

@@ -12,12 +12,14 @@
 
 import asyncio
 import functools
+import pickle
 import uuid
 
 from . import protocol
 from .exceptions import (NoSuchJobError, UnpickleError,
                          DequeueTimeout, InvalidJobOperationError)
-from .job import Job, create_job
+from .job import Job, create_job, description as make_description  # TODO: rename and move to the utils module
+from .utils import function_name, utcnow, utcformat
 
 
 def get_failed_queue(connection=None):
@@ -32,7 +34,7 @@ class Queue:
 
     job_class = Job
     protocol = protocol
-    DEFAULT_TIMEOUT = 180
+    default_timeout = 180
 
     @classmethod
     @asyncio.coroutine
@@ -53,7 +55,9 @@ class Queue:
 
         self.connection = connection
         self.name = name
-        self._default_timeout = default_timeout
+
+        if default_timeout:
+            self.default_timeout = default_timeout
 
         if job_class is not None:
             if isinstance(job_class, str):
@@ -166,24 +170,7 @@ class Queue:
           meaningful to the import context of the workers)
         """
 
-        timeout = kwargs.pop('timeout', None)
-        description = kwargs.pop('description', None)
-        result_ttl = kwargs.pop('result_ttl', None)
-        ttl = kwargs.pop('ttl', None)
-        depends_on = kwargs.pop('depends_on', None)
-        job_id = kwargs.pop('job_id', None)
-        at_front = kwargs.pop('at_front', None)
-
-        if 'args' in kwargs or 'kwargs' in kwargs:
-            assert args == (), ('Extra positional arguments cannot be used '
-                                'when using explicit args and kwargs')
-            args = kwargs.pop('args', None)
-            kwargs = kwargs.pop('kwargs', None)
-
-        return (yield from self.enqueue_call(
-            func=f, args=args, kwargs=kwargs, timeout=timeout,
-            result_ttl=result_ttl, ttl=ttl, job_id=job_id, at_front=at_front,
-            depends_on=depends_on, description=description))
+        return (yield from self.enqueue_call(f, args, kwargs))
 
     @asyncio.coroutine
     def enqueue_call(self, func, args=None, kwargs=None, timeout=None,
@@ -197,46 +184,46 @@ class Queue:
         contain options for RQ itself.
         """
 
-        timeout = timeout or self._default_timeout
-
+        id = job_id or str(uuid.uuid4())
+        args = args or ()
+        kwargs = kwargs or {}
+        func_name, instance = function_name(func)
+        job_tuple = func_name, instance, args, kwargs
+        data = pickle.dumps(job_tuple, protocol=pickle.HIGHEST_PROTOCOL)
+        description = description or make_description(func_name, args, kwargs)
+        timeout = timeout or self.default_timeout
+        created_at = utcnow()
+        spec = {
+            'redis': self.connection,
+            'queue': self.name,
+            'id': id,
+            'data': data,
+            'description': description,
+            'timeout': timeout,
+            'created_at': utcformat(created_at),
+            'at_front': at_front,
+        }
+        if result_ttl:
+            spec['result_ttl'] = result_ttl
+        if ttl:
+            pass     # TODO: process ttl
+        if depends_on:
+            spec['dependency_id'] = depends_on  # TODO: can we use None instead of unset in the protocol?
         # TODO: pass meta argument after rq 0.5.7 release
-        job = self.job_class.create(
-            func, args=args, kwargs=kwargs, timeout=timeout,
-            connection=self.connection, result_ttl=result_ttl, ttl=ttl,
-            status=JobStatus.QUEUED, description=description, id=job_id,
-            depends_on=depends_on, origin=self.name)
-
-        # If job depends on an unfinished job, register itself on it's
-        # parent's dependents instead of enqueueing it.  If
-        # MultiExecError is raised in the process, that means
-        # something else is modifying the dependency.  In this case we
-        # simply retry.
-        if depends_on is not None:
-            if not isinstance(depends_on, self.job_class):
-                depends_on = Job(id=depends_on, connection=self.connection)
-            while True:
-                try:
-                    self.connection.watch(depends_on.key)
-                    dependency_status = yield from depends_on.get_status()
-                    if dependency_status != JobStatus.FINISHED:
-                        yield from job.set_status(JobStatus.DEFERRED)
-                        multi = self.connection.multi_exec()
-                        # NOTE: we need to use yield from in the two
-                        # lines below because they are coroutines, but
-                        # there are no inner yield from on multi since
-                        # we specify pipeline mode.
-                        yield from job.register_dependency(pipeline=multi)
-                        yield from job.save(pipeline=multi)
-                        yield from multi.execute()
-                        return job
-                    break
-                except MultiExecError:
-                    continue
-                finally:
-                    self.connection.unwatch()
-
-        job = yield from self.enqueue_job(job, at_front=at_front)
-
+        x = yield from self.protocol.enqueue_job(**spec)
+        job_spec = {
+            'connection': self.connection,
+            'id': id,
+            'func': func,
+            'args': args,
+            'kwargs': kwargs,
+            'description': description,
+            'timeout': timeout,
+            'result_ttl': result_ttl, # TODO: what store here?
+            'origin': self.name,
+            'created_at': created_at,
+        }
+        job = self.job_class(**job_spec)
         return job
 
     def __eq__(self, other):
