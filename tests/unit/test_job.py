@@ -8,7 +8,7 @@ import pytest
 from aiorq import (cancel_job, get_current_job, requeue_job, Queue,
                    get_failed_queue, Worker)
 from aiorq.exceptions import NoSuchJobError
-from aiorq.job import Job, create_job, description
+from aiorq.job import Job, create_job
 from aiorq.protocol import (enqueue_job, dequeue_job, start_job,
                             finish_job, fail_job)
 from aiorq.specs import JobStatus
@@ -116,16 +116,6 @@ def test_create_job_unimportable_data(redis):
     }
     with pytest.raises(AttributeError):
         create_job(redis, id, spec)
-
-
-# Description.
-
-
-def test_description():
-    """Make job description."""
-
-    desc = description('fixtures.some_calculation', (3, 4), {'z': 2})
-    assert desc == 'fixtures.some_calculation(3, 4, z=2)'
 
 
 # Job.

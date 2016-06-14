@@ -1,7 +1,10 @@
 import pytest
 
-from aiorq.utils import function_name
+from aiorq.utils import function_name, make_description
 from fixtures import some_calculation, Number, CallableObject
+
+
+# Function name.
 
 
 def test_function_name_regular_function():
@@ -61,3 +64,13 @@ def test_function_name_not_a_function():
 
     with pytest.raises(TypeError):
         function_name(1)
+
+
+# Make description.
+
+
+def test_make_description():
+    """Make job description."""
+
+    desc = make_description('fixtures.some_calculation', (3, 4), {'z': 2})
+    assert desc == 'fixtures.some_calculation(3, 4, z=2)'

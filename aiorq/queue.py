@@ -18,8 +18,8 @@ import uuid
 from . import protocol
 from .exceptions import (NoSuchJobError, UnpickleError,
                          DequeueTimeout, InvalidJobOperationError)
-from .job import Job, create_job, description as make_description  # TODO: rename and move to the utils module
-from .utils import function_name, utcnow, utcformat
+from .job import Job, create_job
+from .utils import function_name, utcnow, utcformat, make_description
 
 
 def get_failed_queue(connection=None):

@@ -63,3 +63,12 @@ def function_name(function):
         msg = 'Expected a callable or a string, but got: {}'.format(function)
         raise TypeError(msg)
     return func_name, instance
+
+
+def make_description(func_name, args, kwargs):
+    """Make string representation of the call."""
+
+    args_name = [repr(a) for a in args]
+    args_name += ['{}={!r}'.format(k, v) for k, v in kwargs.items()]
+    args_name = ', '.join(args_name)
+    return '{}({})'.format(func_name, args_name)

@@ -74,15 +74,6 @@ def create_job(redis, id, spec):
     return job
 
 
-def description(func_name, args, kwargs):
-    """String representation of the call."""
-
-    args_name = [repr(a) for a in args]
-    args_name += ['{}={!r}'.format(k, v) for k, v in kwargs.items()]
-    args_name = ', '.join(args_name)
-    return '{}({})'.format(func_name, args_name)
-
-
 class Job:
     """A Job is just convenient data structure to pass around (meta) data."""
 
