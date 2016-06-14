@@ -243,7 +243,7 @@ def test_enqueue():
             assert dependency_id is unset
             assert at_front is False
             uuids.append(id)
-            return
+            return JobStatus.QUEUED, utcnow()
 
     class TestQueue(Queue):
         protocol = Protocol()
@@ -254,9 +254,17 @@ def test_enqueue():
 
     assert job.connection is connection
     assert job.id == uuids.pop(0)
+    assert job.func == say_hello
+    assert job.args == ('Nick',)
+    assert job.kwargs == {'foo': 'bar'}
+    assert job.description == "fixtures.say_hello('Nick', foo='bar')"
+    assert job.timeout == 180
+    assert job.result_ttl == None  # TODO: optional?
     assert job.origin == q.name
     assert helpers.strip_microseconds(job.created_at) == helpers.strip_microseconds(utcnow())
-    # TODO: assert all job fields.
+    assert helpers.strip_microseconds(job.enqueued_at) == helpers.strip_microseconds(utcnow())
+    assert job.status == JobStatus.QUEUED
+    assert job.dependency_id is None
 
 
 # TODO: same test for enqueue_call

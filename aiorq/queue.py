@@ -210,7 +210,7 @@ class Queue:
         if depends_on:
             spec['dependency_id'] = depends_on  # TODO: can we use None instead of unset in the protocol?
         # TODO: pass meta argument after rq 0.5.7 release
-        x = yield from self.protocol.enqueue_job(**spec)
+        status, enqueued_at = yield from self.protocol.enqueue_job(**spec)
         job_spec = {
             'connection': self.connection,
             'id': id,
@@ -222,6 +222,8 @@ class Queue:
             'result_ttl': result_ttl, # TODO: what store here?
             'origin': self.name,
             'created_at': created_at,
+            'status': status,
+            'enqueued_at': enqueued_at,
         }
         job = self.job_class(**job_spec)
         return job
