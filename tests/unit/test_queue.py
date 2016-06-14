@@ -267,7 +267,53 @@ def test_enqueue():
     assert job.dependency_id is None
 
 
-# TODO: same test for enqueue_call
+def test_enqueue_call():
+    """Enqueueing job onto queues."""
+
+    connection = object()
+    uuids = []
+
+    class Protocol:
+        @staticmethod
+        @asyncio.coroutine
+        def enqueue_job(redis, queue, id, data, description, timeout,
+                        created_at, *, result_ttl=unset, dependency_id=unset,
+                        at_front=False):
+            assert redis is connection
+            assert queue == 'example'
+            assert isinstance(id, str)
+            assert data == b'\x80\x04\x952\x00\x00\x00\x00\x00\x00\x00(\x8c\x12fixtures.say_hello\x94N\x8c\x04Nick\x94\x85\x94}\x94\x8c\x03foo\x94\x8c\x03bar\x94st\x94.' # noqa
+            assert description == "fixtures.say_hello('Nick', foo='bar')"
+            assert timeout == 180
+            assert created_at == utcformat(utcnow())
+            assert result_ttl is unset
+            assert dependency_id is unset
+            assert at_front is False
+            uuids.append(id)
+            return JobStatus.QUEUED, utcnow()
+
+    class TestQueue(Queue):
+        protocol = Protocol()
+
+    q = TestQueue('example', connection=connection)
+
+    job = yield from q.enqueue_call(say_hello, args=('Nick',), kwargs={'foo': 'bar'})
+
+    assert job.connection is connection
+    assert job.id == uuids.pop(0)
+    assert job.func == say_hello
+    assert job.args == ('Nick',)
+    assert job.kwargs == {'foo': 'bar'}
+    assert job.description == "fixtures.say_hello('Nick', foo='bar')"
+    assert job.timeout == 180
+    assert job.result_ttl == None  # TODO: optional?
+    assert job.origin == q.name
+    assert helpers.strip_microseconds(job.created_at) == helpers.strip_microseconds(utcnow())
+    assert helpers.strip_microseconds(job.enqueued_at) == helpers.strip_microseconds(utcnow())
+    assert job.status == JobStatus.QUEUED
+    assert job.dependency_id is None
+
+
 # TODO: enqueue_call with dependency job
 # TODO: enqueue_call with dependency string id
 # TODO: no args
