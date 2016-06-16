@@ -114,41 +114,41 @@ def test_all_queues():
 def test_empty_queue():
     """Emptying queues."""
 
-    redis = object()
+    connection = object()
 
     class Protocol:
         @staticmethod
         @asyncio.coroutine
-        def empty_queue(connection, name):
-            assert connection is redis
+        def empty_queue(redis, name):
+            assert redis is connection
             assert name == 'example'
             return 2
 
     class TestQueue(Queue):
         protocol = Protocol()
 
-    q = TestQueue(redis, 'example')
+    q = TestQueue(connection, 'example')
     assert (yield from q.empty()) == 2
 
 
 def test_queue_is_empty():
     """Detecting empty queues."""
 
-    redis = object()
+    connection = object()
     lengths = [2, 0]
 
     class Protocol:
         @staticmethod
         @asyncio.coroutine
-        def queue_length(connection, name):
-            assert connection is redis
+        def queue_length(redis, name):
+            assert redis is connection
             assert name == 'example'
             return lengths.pop(0)
 
     class TestQueue(Queue):
         protocol = Protocol()
 
-    q = TestQueue(redis, 'example')
+    q = TestQueue(connection, 'example')
     assert not (yield from q.is_empty())
     assert (yield from q.is_empty())
 
@@ -156,34 +156,34 @@ def test_queue_is_empty():
 def test_queue_count():
     """Count all messages in the queue."""
 
-    redis = object()
+    connection = object()
 
     class Protocol:
         @staticmethod
         @asyncio.coroutine
-        def queue_length(connection, name):
-            assert connection is redis
+        def queue_length(redis, name):
+            assert redis is connection
             assert name == 'example'
             return 3
 
     class TestQueue(Queue):
         protocol = Protocol()
 
-    q = TestQueue(redis, 'example')
+    q = TestQueue(connection, 'example')
     assert (yield from q.count) == 3
 
 
 def test_remove():
     """Ensure queue.remove properly removes Job from queue."""
 
-    redis = object()
+    connection = object()
     sentinel = []
 
     class Protocol:
         @staticmethod
         @asyncio.coroutine
-        def cancel_job(connection, name, id):
-            assert connection is redis
+        def cancel_job(redis, name, id):
+            assert redis is connection
             assert name == 'example'
             assert id == '56e6ba45-1aa3-4724-8c9f-51b7b0031cee'
             sentinel.append(1)
@@ -191,10 +191,10 @@ def test_remove():
     class TestQueue(Queue):
         protocol = Protocol()
 
-    q = TestQueue(redis, 'example')
+    q = TestQueue(connection, 'example')
 
     job = Job(
-        connection=redis,
+        connection=connection,
         id='56e6ba45-1aa3-4724-8c9f-51b7b0031cee',
         func=say_hello,
         args=(),
@@ -213,13 +213,13 @@ def test_remove():
 def test_jobs():
     """Getting jobs out of a queue."""
 
-    redis = object()
+    connection = object()
 
     class Protocol:
         @staticmethod
         @asyncio.coroutine
-        def jobs(connection, queue, start, end):
-            assert connection is redis
+        def jobs(redis, queue, start, end):
+            assert redis is connection
             assert queue == 'example'
             assert start == 0
             assert end == -1
@@ -227,8 +227,8 @@ def test_jobs():
 
         @staticmethod
         @asyncio.coroutine
-        def job(connection, id):
-            assert connection is redis
+        def job(redis, id):
+            assert redis is connection
             assert id == stubs.job_id
             return {
                 b'created_at': b'2016-04-05T22:40:35Z',
@@ -244,9 +244,9 @@ def test_jobs():
     class TestQueue(Queue):
         protocol = Protocol()
 
-    q = TestQueue(redis, 'example')
+    q = TestQueue(connection, 'example')
     [job] = yield from q.jobs
-    assert job.connection is redis
+    assert job.connection is connection
     assert job.id == stubs.job_id
     assert job.description == stubs.job['description']
 
