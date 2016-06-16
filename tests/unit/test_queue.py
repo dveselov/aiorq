@@ -71,6 +71,31 @@ def test_queue_order():
     assert q3 > q2
 
 
+def test_all_queues():
+    """Get all created queues."""
+
+    connection = object()
+
+    queue_names = [b'foo', b'bar', b'baz']
+
+    class Protocol:
+        @staticmethod
+        @asyncio.coroutine
+        def queues(redis):
+            assert redis is connection
+            return queue_names
+
+    class TestQueue(Queue):
+        protocol = Protocol()
+
+    queues = yield from TestQueue.all(connection)
+    assert len(queues) == 3
+    for queue in queues:
+        assert isinstance(queue, TestQueue)
+        assert queue.connection is connection
+        assert queue.name == queue_names.pop(0).decode()
+
+
 def test_empty_queue():
     """Emptying queues."""
 

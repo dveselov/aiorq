@@ -39,17 +39,12 @@ class Queue:
 
     @classmethod
     @asyncio.coroutine
-    def all(cls, connection=None):
+    def all(cls, connection):
         """Returns an iterable of all Queues."""
 
-        connection = connection
-        rq_keys = yield from connection.smembers(cls.redis_queues_keys)
-
-        def to_queue(queue_key):
-            return cls.from_queue_key(
-                as_text(queue_key), connection=connection)
-
-        return [to_queue(rq_key) for rq_key in rq_keys if rq_key]
+        keys = yield from cls.protocol.queues(connection)
+        return [cls(name=key.decode(), connection=connection)
+                for key in keys]
 
     def __init__(self, name='default', default_timeout=None, connection=None,
                  job_class=None):
