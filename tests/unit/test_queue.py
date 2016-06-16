@@ -220,6 +220,69 @@ def test_remove():
     assert len(sentinel) == 2
 
 
+def test_fetch_job():
+    """Fetch job by id."""
+
+    connection = object()
+
+    class Protocol:
+        @staticmethod
+        @asyncio.coroutine
+        def job(redis, id):
+            assert redis is connection
+            assert id == stubs.job_id
+            return {
+                b'created_at': b'2016-04-05T22:40:35Z',
+                b'data': b'\x80\x04\x950\x00\x00\x00\x00\x00\x00\x00(\x8c\x19fixtures.some_calculation\x94NK\x03K\x04\x86\x94}\x94\x8c\x01z\x94K\x02st\x94.',  # noqa
+                b'description': b'fixtures.some_calculation(3, 4, z=2)',
+                b'timeout': 180,
+                b'result_ttl': 5000,
+                b'status': JobStatus.QUEUED.encode(),
+                b'origin': stubs.queue.encode(),
+                b'enqueued_at': utcformat(utcnow()).encode(),
+            }
+
+    class TestQueue(Queue):
+        protocol = Protocol()
+
+    q = TestQueue(connection)
+    job = yield from q.fetch_job(stubs.job_id)
+    assert job.connection is connection
+
+
+def test_fetch_job_no_such_job():
+    """Cancel job_id from the queue when job cache was missed."""
+
+    connection = object()
+
+    sentinel = []
+
+    class Protocol:
+        @staticmethod
+        @asyncio.coroutine
+        def job(redis, id):
+            assert redis is connection
+            assert id == stubs.job_id
+            return {}
+
+        @staticmethod
+        @asyncio.coroutine
+        def cancel_job(redis, queue, id):
+            assert redis is connection
+            assert queue == stubs.queue
+            assert id == stubs.job_id
+            sentinel.append(1)
+
+    class TestQueue(Queue):
+        protocol = Protocol()
+
+    q = TestQueue(connection)
+    job = yield from q.fetch_job(stubs.job_id)
+    assert sentinel
+
+
+
+
 def test_jobs():
     """Getting jobs out of a queue."""
 

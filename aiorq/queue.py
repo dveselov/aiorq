@@ -74,11 +74,14 @@ class Queue:
 
     @asyncio.coroutine
     def fetch_job(self, job_id):
-        try:
-            return (yield from self.job_class.fetch(
-                job_id, connection=self.connection))
-        except NoSuchJobError:
-            yield from self.remove(job_id)
+        spec = yield from self.protocol.job(self.connection, job_id)
+        if spec:
+            # TODO: use job_id.encode() is stupid.
+            # TODO: respect self.job_class here.
+            job = create_job(self.connection, job_id.encode(), spec)
+            return job
+        else:
+            yield from self.protocol.cancel_job(self.connection, self.name, job_id)
 
     @asyncio.coroutine
     def get_job_ids(self, offset=0, length=-1):
