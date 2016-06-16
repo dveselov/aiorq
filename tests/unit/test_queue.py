@@ -46,6 +46,16 @@ def test_queue_magic_methods():
     assert repr(q) == "Queue('default')"
 
 
+def test_custom_default_timeout():
+    """Override default timeout."""
+
+    connection = object()
+    q = Queue(connection)
+    assert q.default_timeout == 180
+    q = Queue(connection, default_timeout=500)
+    assert q.default_timeout == 500
+
+
 def test_custom_job_class():
     """Ensure custom job class assignment works as expected."""
 
