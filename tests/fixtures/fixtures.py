@@ -2,6 +2,7 @@ import asyncio
 from unittest.mock import Mock
 
 from aiorq import get_current_job
+from aiorq.job import Job
 
 
 @asyncio.coroutine
@@ -94,5 +95,10 @@ def touch_a_mock_after_timeout(timeout):
 @asyncio.coroutine
 def do_nothing():
     """The best job in the world."""
+
+    pass
+
+
+class CustomJob(Job):
 
     pass

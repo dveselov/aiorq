@@ -9,7 +9,7 @@ from aiorq.exceptions import InvalidJobOperationError, DequeueTimeout
 from aiorq.job import Job
 from aiorq.specs import JobStatus
 from aiorq.utils import unset, utcformat, utcnow
-from fixtures import say_hello, Number, echo, div_by_zero
+from fixtures import say_hello, Number, echo, div_by_zero, CustomJob
 
 
 def test_create_queue():
@@ -38,14 +38,15 @@ def test_queue_magic_methods():
 def test_custom_job_class():
     """Ensure custom job class assignment works as expected."""
 
-    class CustomJob(Job):
-        pass
-
     q = Queue(job_class=CustomJob)
     assert q.job_class == CustomJob
 
 
-# TODO: pass CustomJob as a string
+def test_custom_job_string():
+    """Ensure custom job string assignment works as expected."""
+
+    q = Queue(job_class='fixtures.CustomJob')
+    assert q.job_class == CustomJob
 
 
 def test_equality():

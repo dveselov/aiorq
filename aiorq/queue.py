@@ -19,7 +19,8 @@ from . import protocol
 from .exceptions import (NoSuchJobError, UnpickleError,
                          DequeueTimeout, InvalidJobOperationError)
 from .job import Job, create_job
-from .utils import function_name, utcnow, utcformat, make_description
+from .utils import (function_name, utcnow, utcformat,
+                    make_description, import_attribute)
 
 
 def get_failed_queue(connection=None):
