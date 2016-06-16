@@ -46,7 +46,7 @@ class Queue:
         return [cls(name=key.decode(), connection=connection)
                 for key in keys]
 
-    def __init__(self, name='default', default_timeout=None, connection=None,
+    def __init__(self, connection, name='default', default_timeout=None,
                  job_class=None):
 
         self.connection = connection

@@ -12,24 +12,35 @@ from aiorq.utils import unset, utcformat, utcnow
 from fixtures import say_hello, Number, echo, div_by_zero, CustomJob
 
 
+def test_store_connection():
+    """Each queue store connection we give it."""
+
+    connection = object()
+    q = Queue(connection)
+    assert q.connection is connection
+
+
 def test_create_queue():
     """We can create queue instance."""
 
-    q = Queue()
+    connection = object()
+    q = Queue(connection)
     assert q.name == 'default'
 
 
 def test_create_named_queue():
     """We can create named queue instance."""
 
-    q = Queue('my-queue')
+    connection = object()
+    q = Queue(connection, 'my-queue')
     assert q.name == 'my-queue'
 
 
 def test_queue_magic_methods():
     """Test simple magic method behavior of the Queue class."""
 
-    q = Queue()
+    connection = object()
+    q = Queue(connection)
     assert hash(q) == hash('default')
     assert str(q) == "<Queue 'default'>"
     assert repr(q) == "Queue('default')"
@@ -38,23 +49,26 @@ def test_queue_magic_methods():
 def test_custom_job_class():
     """Ensure custom job class assignment works as expected."""
 
-    q = Queue(job_class=CustomJob)
+    connection = object()
+    q = Queue(connection, job_class=CustomJob)
     assert q.job_class == CustomJob
 
 
 def test_custom_job_string():
     """Ensure custom job string assignment works as expected."""
 
-    q = Queue(job_class='fixtures.CustomJob')
+    connection = object()
+    q = Queue(connection, job_class='fixtures.CustomJob')
     assert q.job_class == CustomJob
 
 
 def test_equality():
     """Mathematical equality of queues."""
 
-    q1 = Queue('foo')
-    q2 = Queue('foo')
-    q3 = Queue('bar')
+    connection = object()
+    q1 = Queue(connection, 'foo')
+    q2 = Queue(connection, 'foo')
+    q3 = Queue(connection, 'bar')
     assert q1 == q2
     assert q2 == q1
     assert q1 != q3
@@ -64,9 +78,10 @@ def test_equality():
 def test_queue_order():
     """Mathematical order of queues."""
 
-    q1 = Queue('a')
-    q2 = Queue('b')
-    q3 = Queue('c')
+    connection = object()
+    q1 = Queue(connection, 'a')
+    q2 = Queue(connection, 'b')
+    q3 = Queue(connection, 'c')
     assert q1 < q2
     assert q3 > q2
 
@@ -112,7 +127,7 @@ def test_empty_queue():
     class TestQueue(Queue):
         protocol = Protocol()
 
-    q = TestQueue('example', connection=redis)
+    q = TestQueue(redis, 'example')
     assert (yield from q.empty()) == 2
 
 
@@ -133,7 +148,7 @@ def test_queue_is_empty():
     class TestQueue(Queue):
         protocol = Protocol()
 
-    q = TestQueue('example', connection=redis)
+    q = TestQueue(redis, 'example')
     assert not (yield from q.is_empty())
     assert (yield from q.is_empty())
 
@@ -154,7 +169,7 @@ def test_queue_count():
     class TestQueue(Queue):
         protocol = Protocol()
 
-    q = TestQueue('example', connection=redis)
+    q = TestQueue(redis, 'example')
     assert (yield from q.count) == 3
 
 
@@ -176,7 +191,7 @@ def test_remove():
     class TestQueue(Queue):
         protocol = Protocol()
 
-    q = TestQueue('example', connection=redis)
+    q = TestQueue(redis, 'example')
 
     job = Job(
         connection=redis,
@@ -229,7 +244,7 @@ def test_jobs():
     class TestQueue(Queue):
         protocol = Protocol()
 
-    q = TestQueue('example', connection=redis)
+    q = TestQueue(redis, 'example')
     [job] = yield from q.jobs
     assert job.connection is redis
     assert job.id == stubs.job_id
@@ -274,7 +289,7 @@ def test_enqueue():
     class TestQueue(Queue):
         protocol = Protocol()
 
-    q = TestQueue('example', connection=connection)
+    q = TestQueue(connection, 'example')
 
     job = yield from q.enqueue(say_hello, 'Nick', foo='bar')
 
@@ -285,7 +300,7 @@ def test_enqueue():
     assert job.kwargs == {'foo': 'bar'}
     assert job.description == "fixtures.say_hello('Nick', foo='bar')"
     assert job.timeout == 180
-    assert job.result_ttl == None  # TODO: optional?
+    assert job.result_ttl is None  # TODO: optional?
     assert job.origin == q.name
     assert helpers.strip_microseconds(job.created_at) == helpers.strip_microseconds(utcnow())
     assert helpers.strip_microseconds(job.enqueued_at) == helpers.strip_microseconds(utcnow())
@@ -321,7 +336,7 @@ def test_enqueue_call():
     class TestQueue(Queue):
         protocol = Protocol()
 
-    q = TestQueue('example', connection=connection)
+    q = TestQueue(connection, 'example')
 
     job = yield from q.enqueue_call(say_hello, args=('Nick',), kwargs={'foo': 'bar'})
 
