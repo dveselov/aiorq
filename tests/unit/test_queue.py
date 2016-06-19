@@ -605,17 +605,14 @@ def test_enqueue_call_dependency_job():
     assert not job_bar.enqueued_at
 
 
-# TODO: enqueue_call with dependency job
-# TODO: enqueue_call with dependency string id
-# TODO: no args
-# TODO: no kwargs
-# TODO: timeout calculation
-# TODO: test default_timeout setup
-# TODO: custom description
 # TODO: meta field
+
+
+# Failed queue tests.
+
+
 # TODO: test_requeue_job
 # TODO: test_requeue_nonfailed_job_fails
-# Failed queue tests.
 # TODO: test_quarantine_preserves_timeout
 # TODO: test_requeueing_preserves_timeout
 # TODO: test_requeue_sets_status_to_queued
