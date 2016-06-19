@@ -493,6 +493,26 @@ def test_enqueue_call_no_kwargs():
     assert job.kwargs == {}
 
 
+def test_enqueue_call_preserve_desctiption():
+    """Preserve job description passed."""
+
+    class Protocol:
+        @staticmethod
+        @asyncio.coroutine
+        def enqueue_job(redis, queue, id, data, description, timeout,
+                        created_at, *, result_ttl=unset, dependency_id=unset,
+                        at_front=False):
+            assert description == 'My Job'
+            return JobStatus.QUEUED, utcnow()
+
+    class TestQueue(Queue):
+        protocol = Protocol()
+
+    q = TestQueue(None)
+    job = yield from q.enqueue_call(say_hello, description='My Job')
+    assert job.description == 'My Job'
+
+
 # TODO: enqueue_call with dependency job
 # TODO: enqueue_call with dependency string id
 # TODO: no args
