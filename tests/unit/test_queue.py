@@ -533,6 +533,26 @@ def test_enqueue_call_preserve_timeout():
     assert job.timeout == 7
 
 
+def test_enqueue_call_preserve_result_ttl():
+    """Preserve passed result ttl."""
+
+    class Protocol:
+        @staticmethod
+        @asyncio.coroutine
+        def enqueue_job(redis, queue, id, data, description, timeout,
+                        created_at, *, result_ttl=unset, dependency_id=unset,
+                        at_front=False):
+            assert result_ttl == 7
+            return JobStatus.QUEUED, utcnow()
+
+    class TestQueue(Queue):
+        protocol = Protocol()
+
+    q = TestQueue(None)
+    job = yield from q.enqueue_call(say_hello, result_ttl=7)
+    assert job.result_ttl == 7
+
+
 # TODO: enqueue_call with dependency job
 # TODO: enqueue_call with dependency string id
 # TODO: no args
