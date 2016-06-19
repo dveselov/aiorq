@@ -449,7 +449,7 @@ def test_enqueue_call_custom_job_id():
     assert job.id == 'my_id'
 
 
-def test_enqueue_call_no_ags():
+def test_enqueue_call_no_args():
     """Pass empty tuple in the case arguments were not provided."""
 
     class Protocol:
@@ -468,6 +468,29 @@ def test_enqueue_call_no_ags():
     q = TestQueue(None)
     job = yield from q.enqueue_call(say_hello)
     assert job.args == ()
+
+
+def test_enqueue_call_no_kwargs():
+    """Pass empty dict in the case keyword arguments were not
+    provided.
+    """
+
+    class Protocol:
+        @staticmethod
+        @asyncio.coroutine
+        def enqueue_job(redis, queue, id, data, description, timeout,
+                        created_at, *, result_ttl=unset, dependency_id=unset,
+                        at_front=False):
+            _, _, _, kwargs = pickle.loads(data)
+            assert kwargs == {}
+            return JobStatus.QUEUED, utcnow()
+
+    class TestQueue(Queue):
+        protocol = Protocol()
+
+    q = TestQueue(None)
+    job = yield from q.enqueue_call(say_hello)
+    assert job.kwargs == {}
 
 
 # TODO: enqueue_call with dependency job
