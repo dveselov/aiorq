@@ -278,9 +278,8 @@ def test_fetch_job_no_such_job():
 
     q = TestQueue(connection)
     job = yield from q.fetch_job(stubs.job_id)
+    assert not job
     assert sentinel
-
-
 
 
 def test_jobs():
