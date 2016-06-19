@@ -513,6 +513,26 @@ def test_enqueue_call_preserve_desctiption():
     assert job.description == 'My Job'
 
 
+def test_enqueue_call_preserve_timeout():
+    """Preserve passed job timeout."""
+
+    class Protocol:
+        @staticmethod
+        @asyncio.coroutine
+        def enqueue_job(redis, queue, id, data, description, timeout,
+                        created_at, *, result_ttl=unset, dependency_id=unset,
+                        at_front=False):
+            assert timeout == 7
+            return JobStatus.QUEUED, utcnow()
+
+    class TestQueue(Queue):
+        protocol = Protocol()
+
+    q = TestQueue(None)
+    job = yield from q.enqueue_call(say_hello, timeout=7)
+    assert job.timeout == 7
+
+
 # TODO: enqueue_call with dependency job
 # TODO: enqueue_call with dependency string id
 # TODO: no args
