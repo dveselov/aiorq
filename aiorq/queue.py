@@ -76,9 +76,8 @@ class Queue:
     def fetch_job(self, job_id):
         spec = yield from self.protocol.job(self.connection, job_id)
         if spec:
-            # TODO: use job_id.encode() is stupid.
             # TODO: respect self.job_class here.
-            job = create_job(self.connection, job_id.encode(), spec)
+            job = create_job(self.connection, job_id, spec)
             return job
         else:
             yield from self.protocol.cancel_job(self.connection, self.name, job_id)
@@ -103,8 +102,7 @@ class Queue:
         jobs = []
         for job_id in job_ids:
             job = yield from self.protocol.job(self.connection, job_id)
-            # FIXME: use job_id.encode() is stupid.
-            jobs.append(create_job(self.connection, job_id.encode(), job))
+            jobs.append(create_job(self.connection, job_id, job))
         return jobs
 
     @property

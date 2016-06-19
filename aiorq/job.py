@@ -54,7 +54,7 @@ def get_current_job(connection=None):
 def create_job(redis, id, spec):
     """Create job instance from job id and protocol job spec."""
 
-    job_id = id.decode()
+    job_id = id if isinstance(id, str) else id.decode()
     created_at = utcparse(spec[b'created_at'].decode())
     enqueued_at = utcparse(spec[b'enqueued_at'].decode())
     func_name, instance, args, kwargs = pickle.loads(spec[b'data'])
