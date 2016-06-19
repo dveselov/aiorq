@@ -205,7 +205,11 @@ class Queue:
         if ttl:
             pass     # TODO: process ttl
         if depends_on:
-            spec['dependency_id'] = depends_on  # TODO: can we use None instead of unset in the protocol?
+            # TODO: can we use None instead of unset in the protocol?
+            if isinstance(depends_on, self.job_class):
+                spec['dependency_id'] = depends_on.id
+            else:
+                spec['dependency_id'] = depends_on
         # TODO: pass meta argument after rq 0.5.7 release
         status, enqueued_at = yield from self.protocol.enqueue_job(**spec)
         job_spec = {

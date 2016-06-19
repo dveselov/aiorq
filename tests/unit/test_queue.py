@@ -554,7 +554,7 @@ def test_enqueue_call_preserve_result_ttl():
 
 
 def test_enqueue_call_dependency_id():
-    """Pass dependency id as string.  Create deferred job."""
+    """Pass dependency as id string.  Create deferred job."""
 
     dependencies = [unset, 'foo']
     replies = [(JobStatus.QUEUED, utcnow()),
@@ -575,6 +575,32 @@ def test_enqueue_call_dependency_id():
     q = TestQueue(None)
     job_foo = yield from q.enqueue_call(say_hello, job_id='foo')
     job_bar = yield from q.enqueue_call(say_hello, job_id='bar', depends_on='foo')
+    assert job_bar.status == JobStatus.DEFERRED
+    assert not job_bar.enqueued_at
+
+
+def test_enqueue_call_dependency_job():
+    """Pass dependency as job instance.  Create deferred job."""
+
+    dependencies = [unset, 'foo']
+    replies = [(JobStatus.QUEUED, utcnow()),
+               (JobStatus.DEFERRED, None)]
+
+    class Protocol:
+        @staticmethod
+        @asyncio.coroutine
+        def enqueue_job(redis, queue, id, data, description, timeout,
+                        created_at, *, result_ttl=unset, dependency_id=unset,
+                        at_front=False):
+            assert dependency_id == dependencies.pop(0)
+            return replies.pop(0)
+
+    class TestQueue(Queue):
+        protocol = Protocol()
+
+    q = TestQueue(None)
+    job_foo = yield from q.enqueue_call(say_hello, job_id='foo')
+    job_bar = yield from q.enqueue_call(say_hello, job_id='bar', depends_on=job_foo)
     assert job_bar.status == JobStatus.DEFERRED
     assert not job_bar.enqueued_at
 
