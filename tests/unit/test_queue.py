@@ -427,6 +427,26 @@ def test_enqueue_call():
     assert job.dependency_id is None
 
 
+def test_enqueue_call_custom_job_id():
+    """Preserve passed job_id."""
+
+    class Protocol:
+        @staticmethod
+        @asyncio.coroutine
+        def enqueue_job(redis, queue, id, data, description, timeout,
+                        created_at, *, result_ttl=unset, dependency_id=unset,
+                        at_front=False):
+            assert id == 'my_id'
+            return JobStatus.QUEUED, utcnow()
+
+    class TestQueue(Queue):
+        protocol = Protocol()
+
+    q = TestQueue(None)
+    job = yield from q.enqueue_call(say_hello, job_id='my_id')
+    assert job.id == 'my_id'
+
+
 # TODO: enqueue_call with dependency job
 # TODO: enqueue_call with dependency string id
 # TODO: no args
