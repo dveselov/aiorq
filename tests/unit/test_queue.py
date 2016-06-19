@@ -1,6 +1,8 @@
 import asyncio
-import pytest
+import pickle
 from datetime import datetime
+
+import pytest
 
 import stubs
 import helpers
@@ -445,6 +447,27 @@ def test_enqueue_call_custom_job_id():
     q = TestQueue(None)
     job = yield from q.enqueue_call(say_hello, job_id='my_id')
     assert job.id == 'my_id'
+
+
+def test_enqueue_call_no_ags():
+    """Pass empty tuple in the case arguments were not provided."""
+
+    class Protocol:
+        @staticmethod
+        @asyncio.coroutine
+        def enqueue_job(redis, queue, id, data, description, timeout,
+                        created_at, *, result_ttl=unset, dependency_id=unset,
+                        at_front=False):
+            _, _, args, _ = pickle.loads(data)
+            assert args == ()
+            return JobStatus.QUEUED, utcnow()
+
+    class TestQueue(Queue):
+        protocol = Protocol()
+
+    q = TestQueue(None)
+    job = yield from q.enqueue_call(say_hello)
+    assert job.args == ()
 
 
 # TODO: enqueue_call with dependency job
