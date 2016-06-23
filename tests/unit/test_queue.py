@@ -326,6 +326,31 @@ def test_jobs():
 
 
 # TODO: test q.jobs and empty hash from protocol.job
+
+
+def test_job_ids():
+    """Getting job ids out of a queue."""
+
+    connection = object()
+
+    class Protocol:
+        @staticmethod
+        @asyncio.coroutine
+        def jobs(redis, queue, start, end):
+            assert redis is connection
+            assert queue == 'example'
+            assert start == 0
+            assert end == -1
+            return [stubs.job_id.encode()]
+
+    class TestQueue(Queue):
+        protocol = Protocol()
+
+    q = TestQueue(connection, 'example')
+    ids = yield from q.job_ids
+    assert ids == [stubs.job_id]
+
+
 # TODO: test get_job_ids offset and length behavior.
 
 
