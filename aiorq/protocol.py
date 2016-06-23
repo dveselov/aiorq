@@ -9,6 +9,7 @@
 """
 
 import asyncio
+import uuid
 
 from .exceptions import InvalidOperationError
 from .keys import (queues_key, queue_key, failed_queue_key, job_key,
@@ -158,8 +159,23 @@ def empty_queue(redis, name):
 
 
 @asyncio.coroutine
-def compact_queue(redis):
-    pass
+def compact_queue(redis, name):
+    """Removes all "dead" jobs from the queue by cycling through it, while
+    guaranteeing FIFO semantics.
+
+    :type redis: `aioredis.Redis`
+    :type name: str
+
+    """
+
+    compact = 'rq:queue:_compact:{0}'.format(uuid.uuid4())
+    yield from redis.rename(queue_key(name), compact)
+    while True:
+        job_id = yield from redis.lpop(compact)
+        if not job_id:
+            break
+        if (yield from redis.exists(job_key(job_id.decode()))):  # TODO: stupid decode.
+            yield from redis.rpush(queue_key(name), job_id)
 
 
 @asyncio.coroutine

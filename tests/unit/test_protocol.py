@@ -11,10 +11,11 @@ from aiorq.keys import (queues_key, queue_key, failed_queue_key,
 from aiorq.protocol import (queues, jobs, job, job_status,
                             started_jobs, finished_jobs,
                             deferred_jobs, empty_queue, queue_length,
-                            enqueue_job, dequeue_job, cancel_job,
-                            start_job, finish_job, fail_job,
-                            requeue_job, workers, worker_birth,
-                            worker_death, worker_shutdown_requested)
+                            compact_queue, enqueue_job, dequeue_job,
+                            cancel_job, start_job, finish_job,
+                            fail_job, requeue_job, workers,
+                            worker_birth, worker_death,
+                            worker_shutdown_requested)
 from aiorq.specs import JobStatus, WorkerStatus
 from aiorq.utils import current_timestamp, utcparse, utcformat, utcnow
 
@@ -171,6 +172,16 @@ def test_empty_queue_removes_dependents(redis):
 
 
 # Compact queue.
+
+
+def test_compact_queue(redis):
+    """Compact queue.  Clean non existing jobs."""
+
+    yield from redis.rpush(queue_key(stubs.queue), 'foo')
+    yield from enqueue_job(redis=redis, **stubs.job)
+    yield from redis.rpush(queue_key(stubs.queue), 'bar')
+    yield from compact_queue(redis, stubs.queue)
+    assert (yield from jobs(redis, stubs.queue)) == [stubs.job_id.encode()]
 
 
 # Enqueue job.
