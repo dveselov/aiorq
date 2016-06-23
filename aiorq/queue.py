@@ -141,15 +141,7 @@ class Queue:
         guaranteeing FIFO semantics.
         """
 
-        COMPACT_QUEUE = 'rq:queue:_compact:{0}'.format(uuid.uuid4())
-
-        yield from self.connection.rename(self.key, COMPACT_QUEUE)
-        while True:
-            job_id = as_text((yield from self.connection.lpop(COMPACT_QUEUE)))
-            if job_id is None:
-                break
-            if (yield from self.job_class.exists(job_id, self.connection)):
-                (yield from self.connection.rpush(self.key, job_id))
+        yield from self.protocol.compact_queue(self.connection, self.name)
 
     @asyncio.coroutine
     def enqueue(self, f, *args, **kwargs):

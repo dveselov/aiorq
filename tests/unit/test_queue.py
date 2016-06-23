@@ -332,7 +332,24 @@ def test_jobs():
 def test_compact():
     """Queue.compact() removes non-existing jobs."""
 
-    pass                        # TODO: write actual test
+    connection = object()
+
+    sentinel = []
+
+    class Protocol:
+        @staticmethod
+        @asyncio.coroutine
+        def compact_queue(redis, name):
+            assert redis is connection
+            assert name == 'example'
+            sentinel.append(1)
+
+    class TestQueue(Queue):
+        protocol = Protocol()
+
+    q = TestQueue(connection, 'example')
+    yield from q.compact()
+    assert sentinel
 
 
 def test_enqueue():
