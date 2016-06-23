@@ -325,7 +325,33 @@ def test_jobs():
     assert job.description == stubs.job['description']
 
 
-# TODO: test q.jobs and empty hash from protocol.job
+def test_jobs_expired_job():
+    """Job hash can expire, so we should skip this id."""
+
+    connection = object()
+
+    class Protocol:
+        @staticmethod
+        @asyncio.coroutine
+        def jobs(redis, queue, start, end):
+            assert redis is connection
+            assert queue == 'example'
+            assert start == 0
+            assert end == -1
+            return [stubs.job_id.encode()]
+
+        @staticmethod
+        @asyncio.coroutine
+        def job(redis, id):
+            assert redis is connection
+            assert id == stubs.job_id
+            return {}
+
+    class TestQueue(Queue):
+        protocol = Protocol()
+
+    q = TestQueue(connection, 'example')
+    assert not (yield from q.jobs)
 
 
 def test_job_ids():

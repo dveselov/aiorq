@@ -102,7 +102,9 @@ class Queue:
         jobs = []
         for job_id in job_ids:
             job = yield from self.protocol.job(self.connection, job_id)
-            jobs.append(create_job(self.connection, job_id, job))
+            if job:
+                # TODO: Respect self.job_class here.
+                jobs.append(create_job(self.connection, job_id, job))
         return jobs
 
     @property
