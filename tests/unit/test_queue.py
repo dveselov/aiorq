@@ -351,7 +351,27 @@ def test_job_ids():
     assert ids == [stubs.job_id]
 
 
-# TODO: test get_job_ids offset and length behavior.
+def test_get_job_ids_offset_and_length():
+    """Offset and length arguments affects ids sequence."""
+
+    connection = object()
+
+    class Protocol:
+        @staticmethod
+        @asyncio.coroutine
+        def jobs(redis, queue, start, end):
+            assert redis is connection
+            assert queue == 'example'
+            assert start == 10
+            assert end == 11
+            return [b'foo', b'bar']
+
+    class TestQueue(Queue):
+        protocol = Protocol()
+
+    q = TestQueue(connection, 'example')
+    ids = yield from q.get_job_ids(10, 2)
+    assert ids == ['foo', 'bar']
 
 
 def test_compact():
